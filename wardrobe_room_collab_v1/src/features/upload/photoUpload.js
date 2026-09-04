@@ -90,18 +90,32 @@ export function mountPhotoUpload(store) {
     let finalBlob = oriented;
     let usedHeuristic = false;
     try {
-      let cutBlob = await removeBackground(oriented, (key, current) => {
-        if (key === "compute:inference" && current < 1) {
-          showHint("正在识别衣物轮廓…");
+      let cutBlob = await removeBackground(oriented, (stage, progress) => {
+        // 这里 stage 是 @imgly 的 chunk key（"load:*"、"compute:inference" 等），progress 归一化 0..1
+        if (typeof stage !== "string") return;
+        if (stage.startsWith("load:")) {
+          showHint(`正在加载模型… ${(progress * 100).toFixed(0)}%`);
+        } else if (stage === "compute:inference") {
+          if (progress < 1) showHint(`正在识别衣物轮廓… ${(progress * 100).toFixed(0)}%`);
+          else showHint("识别完成，正在裁紧衣物…");
         }
       });
       // 2) 前景已孤立 → 几何启发式判断是否需要进一步旋转
       cutBlob = await applyClothingHeuristic(cutBlob, category);
       usedHeuristic = true;
       finalBlob = cutBlob;
+      showHint("衣物背景已移除。");
     } catch (err) {
+      const msg = err && err.message ? String(err.message) : String(err);
       console.warn("背景移除失败，使用 EXIF 校正后的原图：", err);
-      showHint("背景移除失败，已使用方向校正后的原图。");
+      // 让用户清楚看到是"模型分块不完整/网络问题"，而不是静默失败
+      if (/Failed to fetch|with size|proto|ORT_|onnx/i.test(msg)) {
+        showHint(`模型文件不完整，暂时跳过抠图（${msg.slice(0, 28)}）。`);
+      } else if (/前景过少|抠图结果为空/.test(msg)) {
+        showHint("未能识别出衣物主体，已使用原图。");
+      } else {
+        showHint(`背景移除失败：${msg.slice(0, 24)}，已用原图。`);
+      }
     }
     addCustomItem(category, {
       name: file.name.replace(/\.[^.]+$/, ""),

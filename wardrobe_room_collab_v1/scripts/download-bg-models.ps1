@@ -9,6 +9,7 @@ $Base = "https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist"
 $OutDir = Join-Path $PSScriptRoot "..\public\models\bg-removal"
 $NeededKeys = @(
   "/models/isnet_fp16",
+  "/models/isnet",
   "/onnxruntime-web/ort-wasm-simd-threaded.jsep.wasm",
   "/onnxruntime-web/ort-wasm-simd-threaded.jsep.mjs",
   "/onnxruntime-web/ort-wasm-simd-threaded.wasm",
