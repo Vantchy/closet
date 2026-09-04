@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+third_party/CatVTON/
