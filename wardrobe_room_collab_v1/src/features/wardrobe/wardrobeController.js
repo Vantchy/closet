@@ -12,6 +12,7 @@ export function mountWardrobeController(store) {
   const selectionActions = document.getElementById("selectionActions");
   const cancelSelectionBtn = document.getElementById("cancelSelectionBtn");
   const confirmSelectionBtn = document.getElementById("confirmSelectionBtn");
+  const takeOffBtn = document.getElementById("takeOffBtn");
   const profilePreview = document.getElementById("profilePreview");
   const profileContent = document.getElementById("profileContent");
   const profileEditBtn = document.getElementById("profileEditBtn");
@@ -107,6 +108,7 @@ export function mountWardrobeController(store) {
       .querySelectorAll(".item-slot--filled.is-selected")
       .forEach(slot => slot.classList.remove("is-selected"));
     selectionActions.classList.remove("is-visible");
+    takeOffBtn.hidden = true;
     profilePreview.classList.remove("is-visible");
     profileContent.removeAttribute("contenteditable");
     profileEditBtn.textContent = "修改";
@@ -137,6 +139,27 @@ export function mountWardrobeController(store) {
     clearSelectionUI();
   }
 
+  // 脱下 = 穿上的逆操作：图层清空、savedOutfits 恢复为 null
+  function takeOffPreview() {
+    if (!previewState) return;
+
+    const { category, item } = previewState;
+    setWearable(category, null);
+
+    mutateStore(next => {
+      if (next.wardrobe.savedOutfits[category] === item) {
+        next.wardrobe.savedOutfits[category] = null;
+      }
+      if (next.wardrobe.lastConfirmed === item) {
+        next.wardrobe.lastConfirmed = null;
+      }
+      next.wardrobe.selectedCategory = null;
+    });
+
+    previewState = null;
+    clearSelectionUI();
+  }
+
   function beginPreview(category, slot, item = null) {
     if (previewState) cancelPreview();
 
@@ -154,6 +177,10 @@ export function mountWardrobeController(store) {
     profileContent.textContent = `衣物分类：${previewItem.label}\n${previewItem.description}`;
     selectionActions.classList.add("is-visible");
     profilePreview.classList.add("is-visible");
+
+    // 只有预览的正是当前穿着的这件，才提供“脱下”
+    takeOffBtn.hidden =
+      store.getState().wardrobe.savedOutfits[category] !== previewState.item;
 
     mutateStore(next => { next.wardrobe.selectedCategory = category; });
   }
@@ -277,6 +304,11 @@ export function mountWardrobeController(store) {
   cancelSelectionBtn.addEventListener("click", event => {
     event.stopPropagation();
     cancelPreview();
+  });
+
+  takeOffBtn.addEventListener("click", event => {
+    event.stopPropagation();
+    takeOffPreview();
   });
 
   confirmSelectionBtn.addEventListener("click", event => {

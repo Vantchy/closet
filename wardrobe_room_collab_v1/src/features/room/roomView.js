@@ -25,6 +25,7 @@ export function renderRoomScene(root) {
 
         <div class="selection-actions" id="selectionActions" aria-label="衣物选择操作">
           <button class="selection-action-btn" id="cancelSelectionBtn" type="button">返回</button>
+          <button class="selection-action-btn danger" id="takeOffBtn" type="button" hidden>脱下</button>
           <button class="selection-action-btn confirm" id="confirmSelectionBtn" type="button">确认</button>
         </div>
 

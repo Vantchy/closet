@@ -332,6 +332,15 @@
       inset 0 0 0 2px rgba(199,157,126,.22);
   }
 
+  .selection-action-btn.danger {
+    border-color: rgba(178,80,70,.38);
+    color: #a04b42;
+  }
+
+  .selection-action-btn[hidden] {
+    display: none;
+  }
+
   .profile-preview {
     position: absolute;
     left: 66%;
