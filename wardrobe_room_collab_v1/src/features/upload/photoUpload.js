@@ -1,5 +1,6 @@
 import { addCustomItem, canAddCustomItem } from "./customItems.js";
 import { removeBackground } from "./removeBackground.js";
+import { applyExifOrientation, applyClothingHeuristic } from "./autoOrientImage.js";
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -74,25 +75,37 @@ export function mountPhotoUpload(store) {
       return;
     }
 
-    // 去背景：AI 分割前景衣物，失败时降级用原图（不让用户卡住）
-    showHint("正在去除背景，首次需加载模型…");
+    // 方向校正（两段式）：
+    //  1) 去背景前先应用 EXIF 方向（手机/相机最常见，canvas 会丢 EXIF，必须先做）
+    //  2) 去背景后再用衣物几何启发式判别是否上下/左右颠倒（此时前景已孤立，准确率显著更高）
+    let oriented = file;
     try {
-      const cutBlob = await removeBackground(file, (key, current) => {
+      oriented = await applyExifOrientation(file);
+    } catch (err) {
+      console.warn("EXIF 方向校正失败，继续使用原图：", err);
+    }
+
+    // 去背景：AI 分割前景衣物，失败时降级用校正后的原图（不让用户卡住）
+    showHint("正在去除背景，首次需加载模型…");
+    let finalBlob = oriented;
+    let usedHeuristic = false;
+    try {
+      let cutBlob = await removeBackground(oriented, (key, current) => {
         if (key === "compute:inference" && current < 1) {
           showHint("正在识别衣物轮廓…");
         }
       });
-      addCustomItem(category, {
-        name: file.name.replace(/\.[^.]+$/, ""),
-        url: URL.createObjectURL(cutBlob)
-      });
+      // 2) 前景已孤立 → 几何启发式判断是否需要进一步旋转
+      cutBlob = await applyClothingHeuristic(cutBlob, category);
+      usedHeuristic = true;
+      finalBlob = cutBlob;
     } catch (err) {
-      console.warn("背景移除失败，使用原图：", err);
-      showHint("背景移除失败，已使用原图。");
-      addCustomItem(category, {
-        name: file.name.replace(/\.[^.]+$/, ""),
-        url: URL.createObjectURL(file)
-      });
+      console.warn("背景移除失败，使用 EXIF 校正后的原图：", err);
+      showHint("背景移除失败，已使用方向校正后的原图。");
     }
+    addCustomItem(category, {
+      name: file.name.replace(/\.[^.]+$/, ""),
+      url: URL.createObjectURL(finalBlob)
+    });
   });
 }
