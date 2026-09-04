@@ -1,4 +1,5 @@
 import { addCustomItem, canAddCustomItem } from "./customItems.js";
+import { removeBackground } from "./removeBackground.js";
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -38,7 +39,7 @@ export function mountPhotoUpload(store) {
     if (event.detail?.message) showHint(event.detail.message);
   });
 
-  input.addEventListener("change", () => {
+  input.addEventListener("change", async () => {
     const file = input.files?.[0];
     input.value = "";
     if (!file || !pendingCategory) return;
@@ -73,9 +74,25 @@ export function mountPhotoUpload(store) {
       return;
     }
 
-    addCustomItem(category, {
-      name: file.name.replace(/\.[^.]+$/, ""),
-      url: URL.createObjectURL(file)
-    });
+    // 去背景：AI 分割前景衣物，失败时降级用原图（不让用户卡住）
+    showHint("正在去除背景，首次需加载模型…");
+    try {
+      const cutBlob = await removeBackground(file, (key, current) => {
+        if (key === "compute:inference" && current < 1) {
+          showHint("正在识别衣物轮廓…");
+        }
+      });
+      addCustomItem(category, {
+        name: file.name.replace(/\.[^.]+$/, ""),
+        url: URL.createObjectURL(cutBlob)
+      });
+    } catch (err) {
+      console.warn("背景移除失败，使用原图：", err);
+      showHint("背景移除失败，已使用原图。");
+      addCustomItem(category, {
+        name: file.name.replace(/\.[^.]+$/, ""),
+        url: URL.createObjectURL(file)
+      });
+    }
   });
 }
