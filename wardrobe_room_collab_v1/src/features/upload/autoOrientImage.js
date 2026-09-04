@@ -384,7 +384,8 @@ function measureGap(imageData, widths, y, rows, W, FG) {
 }
 
 // 把 blob 按角度旋转（0/90/180/270），返回 PNG Blob。
-function rotateBlob(blob, angle) {
+// 除自动校正外，也供预览面板的“旋转”按钮手动修正衣物方向使用。
+export function rotateBlob(blob, angle) {
   return new Promise((resolve, reject) => {
     if (angle % 360 === 0) { resolve(blob); return; }
     const img = new Image();

@@ -40,3 +40,14 @@ export function addCustomItem(category, { name, url }) {
   );
   return item;
 }
+
+// 原地更新某件自定义衣物的图片（预览面板“旋转”按钮用）。
+// 故意不派发 custom-items:changed：那个事件会取消预览并重置衣物格，
+// 而旋转时需要保持预览打开，由 wardrobeController 自行同步缩略图与试穿图层。
+// 注意：savedOutfits 里保存的是同一件 item 对象的引用，改 image 字段即可全局一致。
+export function updateCustomItemImage(category, id, url) {
+  const item = customItems[category]?.find(entry => entry.id === id);
+  if (!item) return null;
+  item.image = url;
+  return item;
+}

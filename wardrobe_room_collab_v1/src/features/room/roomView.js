@@ -24,6 +24,7 @@ export function renderRoomScene(root) {
         <div class="item-grid-panel" id="itemGridPanel" aria-label="衣物格子"></div>
 
         <div class="selection-actions" id="selectionActions" aria-label="衣物选择操作">
+          <button class="selection-action-btn" id="rotateItemBtn" type="button" hidden title="顺时针旋转 90°，可连续点击">旋转</button>
           <button class="selection-action-btn" id="cancelSelectionBtn" type="button">返回</button>
           <button class="selection-action-btn danger" id="takeOffBtn" type="button" hidden>脱下</button>
           <button class="selection-action-btn confirm" id="confirmSelectionBtn" type="button">确认</button>
