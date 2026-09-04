@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 .DS_Store
 third_party/CatVTON/
+# AI 去背景模型文件（约 118MB），由 scripts/download-bg-models.ps1 下载
+public/models/bg-removal/
