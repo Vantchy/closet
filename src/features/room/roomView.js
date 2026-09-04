@@ -10,7 +10,9 @@ export function renderRoomScene(root) {
             alt=""
             draggable="false"
           />
-</div>
+          <span class="window-frame-bar window-frame-bar--vertical"></span>
+          <span class="window-frame-bar window-frame-bar--horizontal"></span>
+        </div>
 
         <button
           class="window-curtain-zone"
