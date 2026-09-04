@@ -1,65 +1,81 @@
+import { addCustomItem, canAddCustomItem } from "./customItems.js";
+
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+// 衣物照片上传：由衣物格“＋”触发（wardrobeController 派发 upload:request 事件），
+// 选择成功后图片注册为该分类的自定义衣物，占据“＋”所在格子。
 export function mountPhotoUpload(store) {
-  const input = document.getElementById("photoInput");
-  const selectButton = document.getElementById("photoSelectBtn");
-  const clearButton = document.getElementById("photoClearBtn");
-  const preview = document.getElementById("photoPreview");
-  const status = document.getElementById("photoStatus");
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/png,image/jpeg,image/webp";
+  input.hidden = true;
+  document.body.appendChild(input);
 
-  let activeObjectUrl = null;
+  let pendingCategory = null;
+  let hintTimer = null;
 
-  function revokePreview() {
-    if (activeObjectUrl) {
-      URL.revokeObjectURL(activeObjectUrl);
-      activeObjectUrl = null;
-    }
+  function showHint(message) {
+    const hint = document.querySelector(".hint");
+    if (!hint) return;
+
+    hint.textContent = message;
+    hint.classList.add("is-visible");
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => {
+      hint.classList.remove("is-visible");
+      hint.textContent = "点击左侧衣柜查看";
+    }, 2600);
   }
 
-  function clearPhoto() {
-    revokePreview();
-    input.value = "";
-    preview.removeAttribute("src");
-    preview.classList.remove("is-visible");
-    clearButton.disabled = true;
-    status.textContent = "照片已清除。";
+  window.addEventListener("upload:request", event => {
+    pendingCategory = event.detail?.category ?? null;
+    if (!pendingCategory) return;
+    input.click();
+  });
 
-    store.setState(current => ({
-      ...current,
-      photo: { file: null, url: null, name: null }
-    }));
-  }
-
-  selectButton.addEventListener("click", () => input.click());
-  clearButton.addEventListener("click", clearPhoto);
+  window.addEventListener("upload:rejected", event => {
+    if (event.detail?.message) showHint(event.detail.message);
+  });
 
   input.addEventListener("change", () => {
     const file = input.files?.[0];
-    if (!file) return;
+    input.value = "";
+    if (!file || !pendingCategory) return;
+
+    const category = pendingCategory;
+    pendingCategory = null;
 
     if (!ALLOWED_TYPES.has(file.type)) {
-      status.textContent = "请选择 JPG、PNG 或 WebP 图片。";
-      input.value = "";
+      window.dispatchEvent(
+        new CustomEvent("upload:rejected", {
+          detail: { category, message: "请选择 JPG、PNG 或 WebP 图片。" }
+        })
+      );
       return;
     }
 
     if (file.size > MAX_IMAGE_BYTES) {
-      status.textContent = "图片不能超过 12 MB。";
-      input.value = "";
+      window.dispatchEvent(
+        new CustomEvent("upload:rejected", {
+          detail: { category, message: "图片不能超过 12 MB。" }
+        })
+      );
       return;
     }
 
-    revokePreview();
-    activeObjectUrl = URL.createObjectURL(file);
-    preview.src = activeObjectUrl;
-    preview.classList.add("is-visible");
-    clearButton.disabled = false;
-    status.textContent = `已选择：${file.name}`;
+    if (!canAddCustomItem(category)) {
+      window.dispatchEvent(
+        new CustomEvent("upload:rejected", {
+          detail: { category, message: "这个分类的衣物格已满。" }
+        })
+      );
+      return;
+    }
 
-    store.setState(current => ({
-      ...current,
-      photo: { file, url: activeObjectUrl, name: file.name }
-    }));
+    addCustomItem(category, {
+      name: file.name.replace(/\.[^.]+$/, ""),
+      url: URL.createObjectURL(file)
+    });
   });
 }

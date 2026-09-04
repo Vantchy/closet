@@ -47,17 +47,6 @@ export function renderRoomScene(root) {
       <div class="hint">点击左侧衣柜查看</div>
 
       <aside class="integration-dock" aria-label="项目扩展功能">
-        <section class="integration-card" id="photoCard">
-          <h2 class="integration-card__title">本地照片</h2>
-          <div class="integration-card__row">
-            <input id="photoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-            <button class="integration-button" id="photoSelectBtn" type="button">选择照片</button>
-            <button class="integration-button" id="photoClearBtn" type="button" disabled>清除</button>
-            <img class="photo-preview" id="photoPreview" alt="本地照片预览" />
-          </div>
-          <p class="integration-status" id="photoStatus">照片只在浏览器本地预览；只有执行 AI 试穿时才会发送给本地后端。</p>
-        </section>
-
         <section class="integration-card" id="weatherCard">
           <h2 class="integration-card__title">当前天气</h2>
           <div class="integration-card__row">

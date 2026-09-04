@@ -1,4 +1,5 @@
 import { CLOTHING, getClothing } from "../../data/clothing.js";
+import { getCustomItems } from "../upload/customItems.js";
 
 export function mountWardrobeController(store) {
   const scene = document.getElementById("scene");
@@ -123,7 +124,7 @@ export function mountWardrobeController(store) {
   function confirmPreview() {
     if (!previewState) return;
 
-    const item = getClothing(previewState.category);
+    const item = previewState.item;
     setWearable(previewState.category, item.image);
 
     mutateStore(next => {
@@ -136,21 +137,21 @@ export function mountWardrobeController(store) {
     clearSelectionUI();
   }
 
-  function beginPreview(category, slot) {
+  function beginPreview(category, slot, item = null) {
     if (previewState) cancelPreview();
 
-    const item = getClothing(category);
-    if (!item) return;
+    const previewItem = item ?? getClothing(category);
+    if (!previewItem) return;
 
-    previewState = { category };
-    setWearable(category, item.image);
+    previewState = { category, item: previewItem };
+    setWearable(category, previewItem.image);
 
     itemGridPanel
       .querySelectorAll(".item-slot--filled")
       .forEach(other => other.classList.remove("is-selected"));
     slot.classList.add("is-selected");
 
-    profileContent.textContent = `衣物分类：${item.label}\n${item.description}`;
+    profileContent.textContent = `衣物分类：${previewItem.label}\n${previewItem.description}`;
     selectionActions.classList.add("is-visible");
     profilePreview.classList.add("is-visible");
 
@@ -173,15 +174,39 @@ export function mountWardrobeController(store) {
     });
     itemGridPanel.appendChild(clothingSlot);
 
-    const addSlot = document.createElement("button");
-    addSlot.type = "button";
-    addSlot.className = "item-slot add-slot";
-    addSlot.setAttribute("aria-label", "添加衣物");
-    addSlot.textContent = "＋";
-    addSlot.addEventListener("click", event => event.stopPropagation());
-    itemGridPanel.appendChild(addSlot);
+    getCustomItems(category).forEach(customItem => {
+      const customSlot = document.createElement("button");
+      customSlot.type = "button";
+      customSlot.className = "item-slot item-slot--filled";
+      customSlot.setAttribute("aria-label", `${customItem.label}衣物`);
+      customSlot.innerHTML =
+        `<img class="item-thumb" src="${customItem.image}" alt="${customItem.label}" draggable="false" />`;
+      customSlot.addEventListener("click", event => {
+        event.stopPropagation();
+        beginPreview(category, customSlot, customItem);
+      });
+      itemGridPanel.appendChild(customSlot);
+    });
 
-    for (let i = 2; i < 12; i += 1) {
+    const usedSlots = 1 + getCustomItems(category).length;
+    const hasAddSlot = usedSlots < 12;
+
+    if (hasAddSlot) {
+      const addSlot = document.createElement("button");
+      addSlot.type = "button";
+      addSlot.className = "item-slot add-slot";
+      addSlot.setAttribute("aria-label", "添加衣物");
+      addSlot.textContent = "＋";
+      addSlot.addEventListener("click", event => {
+        event.stopPropagation();
+        window.dispatchEvent(
+          new CustomEvent("upload:request", { detail: { category } })
+        );
+      });
+      itemGridPanel.appendChild(addSlot);
+    }
+
+    for (let i = usedSlots + (hasAddSlot ? 1 : 0); i < 12; i += 1) {
       const emptySlot = document.createElement("div");
       emptySlot.className = "item-slot";
       itemGridPanel.appendChild(emptySlot);
@@ -235,6 +260,16 @@ export function mountWardrobeController(store) {
   });
 
   itemGridPanel.addEventListener("click", event => event.stopPropagation());
+
+  window.addEventListener("custom-items:changed", event => {
+    const category = event.detail?.category;
+    if (!category || store.getState().wardrobe.activeCategory !== category) return;
+
+    if (previewState) cancelPreview();
+    renderItemGrid(category);
+    itemGridPanel.classList.add("is-visible");
+  });
+
   selectionActions.addEventListener("click", event => event.stopPropagation());
   profilePreview.addEventListener("click", event => event.stopPropagation());
   switcher.addEventListener("click", event => event.stopPropagation());

@@ -480,6 +480,11 @@
     opacity: 0;
   }
 
+  /* 上传失败等临时提示：放大状态下也要能显示。 */
+  .scene.is-zoomed .hint.is-visible {
+    opacity: 1;
+  }
+
   @media (max-width: 760px) {
     .wardrobe {
       left: 16%;
@@ -604,6 +609,13 @@
   display: grid;
   gap: 10px;
   pointer-events: auto;
+  transition: opacity 200ms ease;
+}
+
+/* 衣柜放大时让位：dock 与分类按钮 / 衣物格重叠（A：integration 样式辖区） */
+.scene.is-zoomed .integration-dock {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .integration-card {
