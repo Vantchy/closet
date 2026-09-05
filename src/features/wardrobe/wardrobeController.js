@@ -43,6 +43,7 @@ export function mountWardrobeController(store) {
   };
 
   let previewState = null;
+  const devHint = document.getElementById("devHint");
 
   function mutateStore(mutator) {
     store.setState(current => {
@@ -64,6 +65,10 @@ export function mountWardrobeController(store) {
     switcher.dataset.gender = gender;
     wardrobe.style.opacity = "0";
     character.style.opacity = "0";
+
+    if (devHint) {
+      devHint.style.display = gender === "female" ? "" : "none";
+    }
 
     setTimeout(() => {
       wardrobe.src = nextAsset.wardrobe;
@@ -109,7 +114,9 @@ export function mountWardrobeController(store) {
   function clearSelectionUI() {
     itemGridPanel
       .querySelectorAll(".item-slot--filled.is-selected")
-      .forEach(slot => slot.classList.remove("is-selected"));
+      .forEach(slot => {
+        slot.classList.remove("is-selected", "is-flipped");
+      });
     selectionActions.classList.remove("is-visible");
     takeOffBtn.hidden = true;
     rotateItemBtn.hidden = true;
@@ -166,6 +173,12 @@ export function mountWardrobeController(store) {
   }
 
   function beginPreview(category, slot, item = null) {
+    // 如果点击的是已选中的卡片，翻转它
+    if (slot.classList.contains("is-selected")) {
+      slot.classList.toggle("is-flipped");
+      return;
+    }
+
     if (previewState) cancelPreview();
 
     const previewItem = item ?? getClothing(category);
@@ -174,14 +187,15 @@ export function mountWardrobeController(store) {
     previewState = { category, item: previewItem };
     setWearable(category, previewItem.image);
 
+    // 取消所有卡片的选中和翻转状态
     itemGridPanel
       .querySelectorAll(".item-slot--filled")
-      .forEach(other => other.classList.remove("is-selected"));
+      .forEach(other => {
+        other.classList.remove("is-selected", "is-flipped");
+      });
     slot.classList.add("is-selected");
 
-    profileContent.textContent = `衣物分类：${previewItem.label}\n${previewItem.description}`;
     selectionActions.classList.add("is-visible");
-    profilePreview.classList.add("is-visible");
 
     // 只有预览的正是当前穿着的这件，才提供“脱下”
     takeOffBtn.hidden =
@@ -263,7 +277,13 @@ export function mountWardrobeController(store) {
       clothingSlot.className = "item-slot item-slot--filled";
       clothingSlot.setAttribute("aria-label", `${item.label}衣物`);
       clothingSlot.innerHTML =
-        `<img class="item-thumb" src="${item.image}" alt="${item.label}" draggable="false" />`;
+        `<div class="item-flip-inner">
+          <div class="item-front"><img class="item-thumb" src="${item.image}" alt="${item.label}" draggable="false" /></div>
+          <div class="item-back" onclick="event.stopPropagation()">
+            <span class="item-back-desc">${item.description}</span>
+            <span class="item-back-edit" onclick="event.stopPropagation();var d=this.parentElement.querySelector('.item-back-desc');if(d.getAttribute('contenteditable')==='true'){d.removeAttribute('contenteditable');this.textContent='修改'}else{d.setAttribute('contenteditable','true');d.focus();this.textContent='完成'}">修改</span>
+          </div>
+        </div>`;
       clothingSlot.addEventListener("click", event => {
         event.stopPropagation();
         beginPreview(category, clothingSlot);
@@ -277,7 +297,13 @@ export function mountWardrobeController(store) {
       customSlot.className = "item-slot item-slot--filled";
       customSlot.setAttribute("aria-label", `${customItem.label}衣物`);
       customSlot.innerHTML =
-        `<img class="item-thumb" src="${customItem.image}" alt="${customItem.label}" draggable="false" />`;
+        `<div class="item-flip-inner">
+          <div class="item-front"><img class="item-thumb" src="${customItem.image}" alt="${customItem.label}" draggable="false" /></div>
+          <div class="item-back" onclick="event.stopPropagation()">
+            <span class="item-back-desc">${customItem.description || ""}</span>
+            <span class="item-back-edit" onclick="event.stopPropagation();var d=this.parentElement.querySelector('.item-back-desc');if(d.getAttribute('contenteditable')==='true'){d.removeAttribute('contenteditable');this.textContent='修改'}else{d.setAttribute('contenteditable','true');d.focus();this.textContent='完成'}">修改</span>
+          </div>
+        </div>`;
       customSlot.addEventListener("click", event => {
         event.stopPropagation();
         beginPreview(category, customSlot, customItem);
@@ -359,6 +385,26 @@ export function mountWardrobeController(store) {
   selectionActions.addEventListener("click", event => event.stopPropagation());
   profilePreview.addEventListener("click", event => event.stopPropagation());
   switcher.addEventListener("click", event => event.stopPropagation());
+
+  // 卡片背面"修改"按钮：切换内容可编辑
+  itemGridPanel.addEventListener("click", event => {
+    const editBtn = event.target.closest(".item-back-edit");
+    if (!editBtn) return;
+    event.stopPropagation();
+
+    const descEl = editBtn.parentElement.querySelector(".item-back-desc");
+    if (!descEl) return;
+
+    const editing = descEl.getAttribute("contenteditable") === "true";
+    if (editing) {
+      descEl.removeAttribute("contenteditable");
+      editBtn.textContent = "修改";
+    } else {
+      descEl.setAttribute("contenteditable", "true");
+      descEl.focus();
+      editBtn.textContent = "完成";
+    }
+  });
 
   cancelSelectionBtn.addEventListener("click", event => {
     event.stopPropagation();

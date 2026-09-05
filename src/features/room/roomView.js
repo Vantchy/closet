@@ -117,6 +117,7 @@ export function renderRoomScene(root) {
       </div>
 
       <div class="hint">点击左侧衣柜查看</div>
+      <div class="dev-hint" id="devHint" style="display:none;">女生功能开发尚未完善，敬请期待</div>
 
     </section>
   </main>`;

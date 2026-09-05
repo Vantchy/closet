@@ -491,6 +491,7 @@
     padding: 10px;
     overflow: hidden;
     cursor: pointer;
+    perspective: 600px;
     transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
   }
 
@@ -506,6 +507,82 @@
       0 9px 22px rgba(72, 48, 32, .13),
       inset 0 0 0 2px rgba(206, 165, 133, .34);
     background: rgba(255, 246, 236, .94);
+  }
+
+  .item-slot.item-slot--filled.is-flipped {
+    box-shadow: 0 8px 18px rgba(72, 48, 32, .10);
+  }
+
+  .item-flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 400ms ease;
+  }
+
+  .item-slot.item-slot--filled.is-flipped .item-flip-inner {
+    transform: rotateY(180deg);
+  }
+
+  .item-front,
+  .item-back {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    backface-visibility: hidden;
+    border-radius: 4px;
+  }
+
+  .item-front {
+    background: transparent;
+  }
+
+  .item-back {
+    transform: rotateY(180deg);
+    background: rgba(255, 248, 240, .96);
+    padding: 10px;
+    color: #7a6454;
+    font-size: 12px;
+    line-height: 1.6;
+    text-align: center;
+    overflow-y: auto;
+    white-space: pre-line;
+    word-break: break-all;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .item-back-desc {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .item-back-desc[contenteditable="true"] {
+    outline: none;
+    text-align: left;
+    align-items: flex-start;
+    padding: 4px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .6);
+    cursor: text;
+  }
+
+  .item-back-edit {
+    flex-shrink: 0;
+    margin-top: 6px;
+    color: #b8957a;
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .item-back-edit:hover {
+    color: #8b6f5c;
   }
 
   .item-thumb {
@@ -588,8 +665,8 @@
   .profile-preview {
     position: absolute;
     left: 57%;
-    top: 32.2%;
-    width: 440px;
+    top: 34%;
+    width: 240px;
     opacity: 0;
     transform: translateX(10px);
     pointer-events: none;
@@ -603,27 +680,27 @@
   }
 
   .profile-window {
-    min-height: 265px;
-    padding: 21px 23px;
-    border: 1px solid rgba(90,65,48,.14);
-    border-radius: 21px;
-    background: rgba(255,250,246,.92);
-    box-shadow: 0 18px 38px rgba(72,48,32,.13);
-    backdrop-filter: blur(12px);
+    min-height: 260px;
+    padding: 14px 16px;
+    border: 1px solid rgba(139, 111, 92, .18);
+    border-radius: 4px;
+    background: rgba(255, 248, 240, .94);
+    box-shadow: 0 12px 28px rgba(72, 48, 32, .10);
+    backdrop-filter: blur(8px);
   }
 
   .profile-window-title {
-    margin: 0 0 15px;
-    color: #4b392f;
-    font-size: 21px;
-    font-weight: 800;
+    margin: 0 0 10px;
+    color: #5b4639;
+    font-size: 16px;
+    font-weight: 700;
   }
 
   .profile-window-content {
-    min-height: 160px;
-    color: #765f50;
-    font-size: 15px;
-    line-height: 1.75;
+    min-height: 100px;
+    color: #7a6454;
+    font-size: 13px;
+    line-height: 1.65;
     outline: none;
     white-space: pre-line;
   }
@@ -637,18 +714,18 @@
 
   .profile-edit-btn {
     display: block;
-    min-width: 120px;
-    height: 47px;
-    margin: 13px auto 0;
-    border: 1px solid rgba(90,65,48,.16);
-    border-radius: 15px;
-    background: rgba(255,250,246,.94);
+    min-width: 100px;
+    height: 38px;
+    margin: 10px auto 0;
+    border: 1px solid rgba(139, 111, 92, .18);
+    border-radius: 4px;
+    background: rgba(255, 248, 240, .94);
     color: #5b4639;
     font: inherit;
-    font-size: 15px;
-    font-weight: 750;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 8px 20px rgba(72,48,32,.10);
+    box-shadow: 0 6px 14px rgba(72, 48, 32, .08);
   }
 
   .topbar {
@@ -716,7 +793,7 @@
     position: absolute;
     z-index: 20;
     left: 50%;
-    bottom: 15px;
+    bottom: 28px;
     transform: translateX(-50%);
     padding: 8px 12px;
     border-radius: 999px;
@@ -731,6 +808,19 @@
 
   .scene.is-zoomed .hint {
     opacity: 0;
+  }
+
+  .dev-hint {
+    position: absolute;
+    z-index: 20;
+    left: 50%;
+    bottom: 8px;
+    transform: translateX(-50%);
+    color: #8b6f5c;
+    font-size: 12px;
+    letter-spacing: .02em;
+    pointer-events: none;
+    white-space: nowrap;
   }
 
   /* 上传失败等临时提示：放大状态下也要能显示。 */
