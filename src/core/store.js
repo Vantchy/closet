@@ -12,8 +12,7 @@ const initialState = {
     lastConfirmed: null
   },
   photo: { file: null, url: null, name: null },
-  weather: { status: "idle", data: null, error: null },
-  tryOn: { status: "idle", resultUrl: null, error: null }
+  weather: { status: "idle", data: null, error: null }
 };
 
 export function createStore() {
