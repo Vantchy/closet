@@ -1,4 +1,6 @@
 import { CLOTHING, getClothing } from "../../data/clothing.js";
+import { getCustomItems, updateCustomItemImage } from "../upload/customItems.js";
+import { rotateBlob } from "../upload/autoOrientImage.js";
 
 export function mountWardrobeController(store) {
   const scene = document.getElementById("scene");
@@ -11,6 +13,8 @@ export function mountWardrobeController(store) {
   const selectionActions = document.getElementById("selectionActions");
   const cancelSelectionBtn = document.getElementById("cancelSelectionBtn");
   const confirmSelectionBtn = document.getElementById("confirmSelectionBtn");
+  const takeOffBtn = document.getElementById("takeOffBtn");
+  const rotateItemBtn = document.getElementById("rotateItemBtn");
   const profilePreview = document.getElementById("profilePreview");
   const profileContent = document.getElementById("profileContent");
   const profileEditBtn = document.getElementById("profileEditBtn");
@@ -106,6 +110,8 @@ export function mountWardrobeController(store) {
       .querySelectorAll(".item-slot--filled.is-selected")
       .forEach(slot => slot.classList.remove("is-selected"));
     selectionActions.classList.remove("is-visible");
+    takeOffBtn.hidden = true;
+    rotateItemBtn.hidden = true;
     profilePreview.classList.remove("is-visible");
     profileContent.removeAttribute("contenteditable");
     profileEditBtn.textContent = "修改";
@@ -123,7 +129,7 @@ export function mountWardrobeController(store) {
   function confirmPreview() {
     if (!previewState) return;
 
-    const item = getClothing(previewState.category);
+    const item = previewState.item;
     setWearable(previewState.category, item.image);
 
     mutateStore(next => {
@@ -136,25 +142,90 @@ export function mountWardrobeController(store) {
     clearSelectionUI();
   }
 
-  function beginPreview(category, slot) {
+  // 脱下 = 穿上的逆操作：图层清空、savedOutfits 恢复为 null
+  function takeOffPreview() {
+    if (!previewState) return;
+
+    const { category, item } = previewState;
+    setWearable(category, null);
+
+    mutateStore(next => {
+      if (next.wardrobe.savedOutfits[category] === item) {
+        next.wardrobe.savedOutfits[category] = null;
+      }
+      if (next.wardrobe.lastConfirmed === item) {
+        next.wardrobe.lastConfirmed = null;
+      }
+      next.wardrobe.selectedCategory = null;
+    });
+
+    previewState = null;
+    clearSelectionUI();
+  }
+
+  function beginPreview(category, slot, item = null) {
     if (previewState) cancelPreview();
 
-    const item = getClothing(category);
-    if (!item) return;
+    const previewItem = item ?? getClothing(category);
+    if (!previewItem) return;
 
-    previewState = { category };
-    setWearable(category, item.image);
+    previewState = { category, item: previewItem };
+    setWearable(category, previewItem.image);
 
     itemGridPanel
       .querySelectorAll(".item-slot--filled")
       .forEach(other => other.classList.remove("is-selected"));
     slot.classList.add("is-selected");
 
-    profileContent.textContent = `衣物分类：${item.label}\n${item.description}`;
+    profileContent.textContent = `衣物分类：${previewItem.label}\n${previewItem.description}`;
     selectionActions.classList.add("is-visible");
     profilePreview.classList.add("is-visible");
 
+    // 只有预览的正是当前穿着的这件，才提供“脱下”
+    takeOffBtn.hidden =
+      store.getState().wardrobe.savedOutfits[category] !== previewState.item;
+
+    // 只有自己上传的衣物提供“旋转”：预设素材的方向是校准过的，不允许转
+    rotateItemBtn.hidden = !previewState.item.id?.startsWith("custom_");
+
     mutateStore(next => { next.wardrobe.selectedCategory = category; });
+  }
+
+  // 旋转自定义衣物图片：每点一次顺时针 90°。
+  // 旋转是对“这件衣服本身”的修正——立即保存到该衣物并同步所有展示位置
+  // （衣物格缩略图、人物试穿图层；当前穿着状态引用同一对象，自动一致），
+  // 因此“返回”不会撤销旋转，重新进入预览看到的就是转好的图。
+  async function rotateCustomItem() {
+    if (!previewState || rotateItemBtn.disabled) return;
+
+    const { category, item } = previewState;
+    if (!item.id?.startsWith("custom_")) return;
+
+    rotateItemBtn.disabled = true;
+    try {
+      const blob = await (await fetch(item.image)).blob();
+      const rotated = await rotateBlob(blob, 90);
+      const previousUrl = item.image;
+      if (!updateCustomItemImage(category, item.id, URL.createObjectURL(rotated))) {
+        return;
+      }
+      URL.revokeObjectURL(previousUrl);
+
+      // 同步衣物格缩略图并保持选中态（renderItemGrid 会重建格子）
+      renderItemGrid(category);
+      const filledSlots = itemGridPanel.querySelectorAll(".item-slot--filled");
+      const slotIndex =
+        1 + getCustomItems(category).findIndex(entry => entry.id === item.id);
+      filledSlots[slotIndex]?.classList.add("is-selected");
+      itemGridPanel.classList.add("is-visible");
+
+      // 同步人物身上的试穿效果
+      setWearable(category, item.image);
+    } catch (err) {
+      console.warn("衣物图片旋转失败：", err);
+    } finally {
+      rotateItemBtn.disabled = false;
+    }
   }
 
   function renderItemGrid(category) {
@@ -173,15 +244,39 @@ export function mountWardrobeController(store) {
     });
     itemGridPanel.appendChild(clothingSlot);
 
-    const addSlot = document.createElement("button");
-    addSlot.type = "button";
-    addSlot.className = "item-slot add-slot";
-    addSlot.setAttribute("aria-label", "添加衣物");
-    addSlot.textContent = "＋";
-    addSlot.addEventListener("click", event => event.stopPropagation());
-    itemGridPanel.appendChild(addSlot);
+    getCustomItems(category).forEach(customItem => {
+      const customSlot = document.createElement("button");
+      customSlot.type = "button";
+      customSlot.className = "item-slot item-slot--filled";
+      customSlot.setAttribute("aria-label", `${customItem.label}衣物`);
+      customSlot.innerHTML =
+        `<img class="item-thumb" src="${customItem.image}" alt="${customItem.label}" draggable="false" />`;
+      customSlot.addEventListener("click", event => {
+        event.stopPropagation();
+        beginPreview(category, customSlot, customItem);
+      });
+      itemGridPanel.appendChild(customSlot);
+    });
 
-    for (let i = 2; i < 12; i += 1) {
+    const usedSlots = 1 + getCustomItems(category).length;
+    const hasAddSlot = usedSlots < 12;
+
+    if (hasAddSlot) {
+      const addSlot = document.createElement("button");
+      addSlot.type = "button";
+      addSlot.className = "item-slot add-slot";
+      addSlot.setAttribute("aria-label", "添加衣物");
+      addSlot.textContent = "＋";
+      addSlot.addEventListener("click", event => {
+        event.stopPropagation();
+        window.dispatchEvent(
+          new CustomEvent("upload:request", { detail: { category } })
+        );
+      });
+      itemGridPanel.appendChild(addSlot);
+    }
+
+    for (let i = usedSlots + (hasAddSlot ? 1 : 0); i < 12; i += 1) {
       const emptySlot = document.createElement("div");
       emptySlot.className = "item-slot";
       itemGridPanel.appendChild(emptySlot);
@@ -235,6 +330,16 @@ export function mountWardrobeController(store) {
   });
 
   itemGridPanel.addEventListener("click", event => event.stopPropagation());
+
+  window.addEventListener("custom-items:changed", event => {
+    const category = event.detail?.category;
+    if (!category || store.getState().wardrobe.activeCategory !== category) return;
+
+    if (previewState) cancelPreview();
+    renderItemGrid(category);
+    itemGridPanel.classList.add("is-visible");
+  });
+
   selectionActions.addEventListener("click", event => event.stopPropagation());
   profilePreview.addEventListener("click", event => event.stopPropagation());
   switcher.addEventListener("click", event => event.stopPropagation());
@@ -242,6 +347,16 @@ export function mountWardrobeController(store) {
   cancelSelectionBtn.addEventListener("click", event => {
     event.stopPropagation();
     cancelPreview();
+  });
+
+  takeOffBtn.addEventListener("click", event => {
+    event.stopPropagation();
+    takeOffPreview();
+  });
+
+  rotateItemBtn.addEventListener("click", event => {
+    event.stopPropagation();
+    rotateCustomItem();
   });
 
   confirmSelectionBtn.addEventListener("click", event => {

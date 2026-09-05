@@ -6,6 +6,10 @@ __pycache__/
 *.pyc
 .DS_Store
 third_party/CatVTON/
+# AI 去背景模型文件（约 118MB），由 scripts/download-bg-models.ps1 下载
+public/models/bg-removal/
+# 方案三服装专用分割模型（约 200MB，含 ort 运行时），由 scripts/download-cloth-model.ps1 下载
+public/models/cloth-seg/
 test_*.txt
 test_*.py
 run_*.bat
