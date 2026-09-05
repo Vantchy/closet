@@ -64,7 +64,9 @@ export function renderRoomScene(root) {
         <div class="item-grid-panel" id="itemGridPanel" aria-label="衣物格子"></div>
 
         <div class="selection-actions" id="selectionActions" aria-label="衣物选择操作">
+          <button class="selection-action-btn" id="rotateItemBtn" type="button" hidden title="顺时针旋转 90°，可连续点击">旋转</button>
           <button class="selection-action-btn" id="cancelSelectionBtn" type="button">返回</button>
+          <button class="selection-action-btn danger" id="takeOffBtn" type="button" hidden>脱下</button>
           <button class="selection-action-btn confirm" id="confirmSelectionBtn" type="button">确认</button>
         </div>
 
@@ -87,15 +89,13 @@ export function renderRoomScene(root) {
       <div class="hint">点击左侧衣柜查看</div>
 
       <aside class="integration-dock" aria-label="项目扩展功能">
-        <section class="integration-card" id="photoCard">
-          <h2 class="integration-card__title">本地照片</h2>
+        <section class="integration-card" id="weatherCard">
+          <h2 class="integration-card__title">当前天气</h2>
           <div class="integration-card__row">
-            <input id="photoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-            <button class="integration-button" id="photoSelectBtn" type="button">选择照片</button>
-            <button class="integration-button" id="photoClearBtn" type="button" disabled>清除</button>
-            <img class="photo-preview" id="photoPreview" alt="本地照片预览" />
+            <button class="integration-button" id="weatherButton" type="button">获取当前天气</button>
+            <span class="weather-readout" id="weatherReadout">尚未获取</span>
           </div>
-          <p class="integration-status" id="photoStatus">照片只在浏览器本地预览；只有执行 AI 试穿时才会发送给本地后端。</p>
+          <p class="integration-status" id="weatherStatus">使用浏览器定位后请求 Open-Meteo。</p>
         </section>
 
 

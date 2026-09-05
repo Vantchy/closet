@@ -519,6 +519,15 @@
       inset 0 0 0 2px rgba(199,157,126,.22);
   }
 
+  .selection-action-btn.danger {
+    border-color: rgba(178,80,70,.38);
+    color: #a04b42;
+  }
+
+  .selection-action-btn[hidden] {
+    display: none;
+  }
+
   .profile-preview {
     position: absolute;
     left: 66%;
@@ -665,6 +674,11 @@
 
   .scene.is-zoomed .hint {
     opacity: 0;
+  }
+
+  /* 上传失败等临时提示：放大状态下也要能显示。 */
+  .scene.is-zoomed .hint.is-visible {
+    opacity: 1;
   }
 
   @media (max-width: 760px) {
@@ -859,6 +873,12 @@
 .photo-preview.is-visible,
 .tryon-result.is-visible {
   display: block;
+}
+
+.weather-readout {
+  color: #5d493c;
+  font-size: 12px;
+  font-weight: 650;
 }
 
 
