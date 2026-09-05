@@ -82,11 +82,10 @@ export function renderRoomScene(root) {
         </div>
 
         <div class="wardrobe-tools" id="wardrobeTools" aria-label="衣柜分类">
-          <div class="category-menu" id="categoryMenu">
-            <button class="category-btn" type="button" data-category="hat" aria-pressed="false">帽子</button>
-            <button class="category-btn" type="button" data-category="top" aria-pressed="false">上衣</button>
-            <button class="category-btn" type="button" data-category="coat" aria-pressed="false">外套</button>
-            <button class="category-btn" type="button" data-category="pants" aria-pressed="false">裤子</button>
+          <div class="wardrobe-hotspots" id="categoryMenu">
+            <button class="wardrobe-hotspot" type="button" data-category="hat" aria-label="帽子"></button>
+            <button class="wardrobe-hotspot" type="button" data-category="top" aria-label="上衣"></button>
+            <button class="wardrobe-hotspot" type="button" data-category="pants" aria-label="裤子"></button>
           </div>
 
           <div class="item-grid-panel" id="itemGridPanel" aria-label="衣物格子"></div>
@@ -118,25 +117,6 @@ export function renderRoomScene(root) {
       </div>
 
       <div class="hint">点击左侧衣柜查看</div>
-      <aside class="integration-dock" aria-label="项目扩展功能">
-        <section class="integration-card" id="weatherCard">
-          <h2 class="integration-card__title">当前天气</h2>
-          <div class="integration-card__row">
-            <button class="integration-button" id="weatherButton" type="button">获取当前天气</button>
-            <span class="weather-readout" id="weatherReadout">尚未获取</span>
-          </div>
-          <p class="integration-status" id="weatherStatus">使用浏览器定位后请求 Open-Meteo。</p>
-        </section>
-
-        <section class="integration-card" id="tryOnCard">
-          <h2 class="integration-card__title">AI 试穿</h2>
-          <div class="integration-card__row">
-            <button class="integration-button" id="tryOnButton" type="button" disabled>试穿已确认衣物</button>
-            <img class="tryon-result" id="tryOnResult" alt="AI 试穿结果" />
-          </div>
-          <p class="integration-status" id="tryOnStatus">先上传人物照片，再在衣柜中确认一件上衣、外套或裤子。</p>
-        </section>
-      </aside>
 
     </section>
   </main>`;
