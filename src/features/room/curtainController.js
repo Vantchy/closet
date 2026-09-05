@@ -34,10 +34,10 @@ export function mountCurtainController(store, { requestWeather }) {
     zone.setAttribute("aria-pressed", String(open));
     zone.setAttribute(
       "aria-label",
-      open ? "刷新天气和窗外景色" : "获取天气并打开窗帘"
+      open ? "点击关闭窗帘" : "获取天气并打开窗帘"
     );
     zone.title = open
-      ? "点击重新获取天气并刷新窗外景色"
+      ? "点击关闭窗帘（天气仍显示）"
       : "点击获取当前天气并打开窗帘";
   }
 
@@ -88,7 +88,11 @@ export function mountCurtainController(store, { requestWeather }) {
 
   zone.addEventListener("click", event => {
     event.stopPropagation();
-    void requestWeatherAndOpen();
+    if (store.getState().room.curtainOpen) {
+      setOpen(false);
+    } else {
+      void requestWeatherAndOpen();
+    }
   });
 
   // Always start closed; weather does not automatically open or close it.
