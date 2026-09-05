@@ -91,7 +91,7 @@ export function mountPhotoUpload(store) {
     let usedHeuristic = false;
     try {
       let cutBlob = await removeBackground(oriented, (stage, progress) => {
-        // 这里 stage 是 @imgly 的 chunk key（"load:*"、"compute:inference" 等），progress 归一化 0..1
+        // stage 来自服装模型（load:cloth-model / compute:inference）或 @imgly（load:* 等）
         if (typeof stage !== "string") return;
         if (stage.startsWith("load:")) {
           showHint(`正在加载模型… ${(progress * 100).toFixed(0)}%`);
@@ -99,7 +99,7 @@ export function mountPhotoUpload(store) {
           if (progress < 1) showHint(`正在识别衣物轮廓… ${(progress * 100).toFixed(0)}%`);
           else showHint("识别完成，正在裁紧衣物…");
         }
-      });
+      }, category);
       // 2) 前景已孤立 → 几何启发式判断是否需要进一步旋转
       cutBlob = await applyClothingHeuristic(cutBlob, category);
       usedHeuristic = true;

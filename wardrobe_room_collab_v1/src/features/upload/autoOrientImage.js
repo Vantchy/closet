@@ -240,15 +240,24 @@ export function detectClothingOrientation(imageData, category) {
     let s = 0;
     if (h >= w && nt && nb && botHalf) {
       const ratio = (topHalf / nt) / (botHalf / nb);
-      const thr = cat === "pants" ? 1.15 : 1.08;
-      if (ratio < 1 / thr) s += 1.0;
+      const isTop = cat === "top" || cat === "coat" || cat === "hat";
+      if (isTop) {
+        // 上衣正向时肩部+袖子在上、最宽处在上，下摆收窄：奖励“上宽下窄”。
+        // （之前一律奖励“上窄下宽”，会把正向 T 恤误判为上下颠倒而旋转 180°）
+        if (ratio > 1.08) s += 1.0;
+      } else if (ratio < 1 / 1.15) {
+        // 裤子正向时腰口较窄、两腿下摆展开：奖励“上窄下宽”
+        s += 1.0;
+      }
     }
-    // 顶端 vs 底端中央缺口：奖励“缺口在顶”（领口/帽檐口在上就是正向），
-    // 缺口在底不扣分——因为把图旋转 180° 后原底变成顶，自然得奖。
+    // 顶端 vs 底端中央缺口：上衣奖励“缺口在顶”（领口/帽檐口在上），
+    // 裤子奖励“缺口在底”（裤腿分叉在下）。
     const band = Math.max(3, Math.round((botRow - topRow) * 0.12));
     const tg = measureGap(d, widths, topRow, band, w, FG);
     const bg = measureGap(d, widths, Math.max(topRow, botRow - band), band, w, FG);
-    if (tg > 0.07 && tg > 1.6 * Math.max(0.01, bg)) s += 1.0;
+    const isPantsCat = cat === "pants";
+    if (!isPantsCat && tg > 0.07 && tg > 1.6 * Math.max(0.01, bg)) s += 1.0;
+    if (isPantsCat && bg > 0.07 && bg > 1.6 * Math.max(0.01, tg)) s += 1.0;
     return { s, w, h };
   };
 
