@@ -6,3 +6,9 @@ __pycache__/
 *.pyc
 .DS_Store
 third_party/CatVTON/
+test_*.txt
+test_*.py
+run_*.bat
+run_*.ps1
+*.log
+*.tmp
