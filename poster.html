@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>智能衣柜 · 项目卡</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #e8e0d4;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    display: flex; justify-content: center; align-items: flex-start;
+    min-height: 100vh; padding: 24px;
+  }
+  #poster {
+    width: 1600px; height: 900px;
+    background: linear-gradient(160deg, #faf4ea 0%, #f3e9da 55%, #efe2cf 100%);
+    border-radius: 18px;
+    padding: 26px 32px 18px;
+    display: flex; flex-direction: column; gap: 12px;
+    color: #4a3f33;
+    box-shadow: 0 18px 50px rgba(93, 70, 50, .18);
+    overflow: hidden;
+  }
+
+  /* ── 标题行 ── */
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    height: 66px; flex: none;
+  }
+  .title-block h1 {
+    font-size: 38px; letter-spacing: 2px; color: #5d4632; line-height: 1.1;
+    display: flex; align-items: baseline; gap: 14px; white-space: nowrap;
+  }
+  .title-block h1 .en { font-size: 18px; color: #b98d5e; font-weight: 600; letter-spacing: 4px; }
+  .slogan { margin-top: 5px; font-size: 17px; color: #8a6d4f; font-weight: 600; letter-spacing: 1px; white-space: nowrap; }
+  .team-block { text-align: right; flex: none; }
+  .team-name {
+    display: inline-block; white-space: nowrap;
+    background: #5d4632; color: #fbf5ea;
+    font-size: 16px; font-weight: 700; letter-spacing: 1px;
+    padding: 6px 16px; border-radius: 999px;
+  }
+  .team-name span { color: #ffd9a0; }
+  .members { margin-top: 6px; font-size: 14px; color: #8a7a66; letter-spacing: .5px; }
+
+  /* ── 主区域：左图右卡 ── */
+  .main { flex: 1; min-height: 0; display: flex; gap: 14px; }
+
+  .hero {
+    flex: 1.62; min-width: 0;
+    position: relative;
+    border-radius: 14px; overflow: hidden;
+    border: 3px solid #ffffff;
+    box-shadow: 0 8px 24px rgba(93, 70, 50, .20);
+  }
+  .hero img { width: 100%; height: 100%; object-fit: cover; object-position: 42% 50%; display: block; }
+  .hero .cap {
+    position: absolute; right: 14px; top: 12px;
+    background: rgba(255, 252, 246, .92); color: #6b5540;
+    font-size: 13px; font-weight: 600;
+    padding: 5px 12px; border-radius: 8px;
+  }
+  .hero .tag {
+    position: absolute; left: 14px; bottom: 12px;
+    background: rgba(63, 46, 36, .82); color: #fdf6ec;
+    font-size: 13.5px; font-weight: 600;
+    padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+  }
+
+  .side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+
+  /* ── 卡片通用 ── */
+  .card {
+    background: #fffdf8; border-radius: 13px;
+    border: 1.5px solid #e8dcc8;
+    padding: 12px 18px;
+  }
+  .card h3 {
+    font-size: 16px; color: #b98d5e; letter-spacing: 2px; font-weight: 800;
+    margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+  }
+  .card h3::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: #b98d5e; flex: none; }
+  .card h3 + .sub-h3 { margin-top: 8px; }
+  .card ul { list-style: none; }
+  .card li {
+    font-size: 13.5px; line-height: 1.42; color: #54483a;
+    padding-left: 13px; position: relative; margin-top: 2px;
+  }
+  .card li::before { content: "·"; position: absolute; left: 0; color: #b98d5e; font-weight: 900; }
+  .card li b { color: #8a5a2e; }
+  .card p { font-size: 13.5px; line-height: 1.48; color: #54483a; }
+  .card p .hl { background: linear-gradient(transparent 62%, #ffe0ae 62%); font-weight: 700; }
+
+  /* 问题+方案 卡片 */
+  .c-problem { flex: none; }
+
+  /* 流程卡片 */
+  .c-flow { flex: none; padding-bottom: 14px; }
+  .steps { display: flex; gap: 6px; margin-top: 8px; }
+  .step { flex: 1; text-align: center; }
+  .step .icon {
+    width: 42px; height: 42px; margin: 0 auto 6px;
+    border-radius: 12px; background: #f3e6d2;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step .icon svg { width: 24px; height: 24px; stroke: #a4703d; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .step .t { font-size: 13px; font-weight: 800; color: #5d4632; line-height: 1.3; }
+  .step .d { font-size: 11.5px; color: #8a7a66; line-height: 1.3; margin-top: 2px; }
+
+  /* 完成内容 */
+  .c-done { flex: 1; min-height: 0; }
+
+  /* 亮点 */
+  .c-hl { flex: none; }
+  .hl-item { display: flex; gap: 9px; align-items: flex-start; margin-top: 6px; }
+  .hl-badge {
+    flex: none; width: 30px; height: 30px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 900; color: #fffdf8;
+  }
+  .hl-badge.b1 { background: #c97b4a; }
+  .hl-badge.b2 { background: #7d9b76; }
+  .hl-badge.b3 { background: #b98d5e; }
+  .hl-item .txt { font-size: 12.8px; line-height: 1.4; color: #54483a; padding-top: 1px; }
+  .hl-item .txt b { color: #5d4632; font-size: 13.5px; }
+
+  /* Demo 条 */
+  .demo-bar {
+    flex: none; height: 42px;
+    background: #5d4632; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    color: #fbf5ea; font-size: 13.5px; font-weight: 600; letter-spacing: .3px;
+    white-space: nowrap;
+  }
+  .demo-bar .tag {
+    background: #ffd9a0; color: #5d4632; border-radius: 7px;
+    padding: 3px 10px; font-size: 13px; font-weight: 800;
+  }
+
+  /* ── 底栏 ── */
+  .footer {
+    flex: none; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: #8a7a66; letter-spacing: .5px;
+  }
+  .footer b { color: #6b5540; margin-right: 14px; }
+</style>
+</head>
+<body>
+<div id="poster">
+
+  <!-- 标题行 -->
+  <div class="header">
+    <div class="title-block">
+      <h1>智能衣柜 <span class="en">SMART CLOSET</span></h1>
+      <div class="slogan">打开衣柜，秒速上身 —— 零 GPU 的纯前端极速试衣间</div>
+    </div>
+    <div class="team-block">
+      <span class="team-name">三元一次方程组 <span>· 创新组</span></span>
+      <div class="members">万欣琪 &nbsp;夏羽仪 &nbsp;唐逸川</div>
+    </div>
+  </div>
+
+  <!-- 主区域 -->
+  <div class="main">
+
+    <!-- 左：主视觉 -->
+    <div class="hero">
+      <img src="src/assets/demobigpicture.png" alt="产品主界面">
+      <span class="cap">产品主界面 · 房间场景实时截图</span>
+      <span class="tag">点衣柜 → 挑衣物 → 即刻上身</span>
+    </div>
+
+    <!-- 右：卡片列 -->
+    <div class="side">
+
+      <div class="card c-problem">
+        <h3>问题是什么</h3>
+        <ul>
+          <li>现有 AI 换衣依赖 GPU 推理：<b>出图慢、成本高、还要排队</b></li>
+          <li>衣柜里的衣服看不见全貌，每天搭配<b>全靠想象</b></li>
+          <li>想给小人穿上自己画的衣服？却<b>很难轻松实现</b></li>
+        </ul>
+        <h3 class="sub-h3">我们的解决方案</h3>
+        <p>自研<span class="hl">纯前端 Canvas 几何换装引擎</span>：浏览器本地毫秒级出图；自动识别肩点、领口与袖口，<span class="hl">手臂随衣袖旋转贴合、脖颈按领口曲线完整露出</span>，还原真实穿衣逻辑。</p>
+      </div>
+
+      <div class="card c-flow">
+        <h3>核心体验流程</h3>
+        <div class="steps">
+          <div class="step">
+            <div class="icon"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M12 3v18M9 11h.8M14.2 11h.8"/></svg></div>
+            <div class="t">1 点击衣柜</div>
+            <div class="d">走进衣橱</div>
+          </div>
+          <div class="step">
+            <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 4a2 2 0 0 1 2 2l7 4-2.2 2.4-1.8-1V20H7v-8.6l-1.8 1L3 10l7-4a2 2 0 0 1 2-2z"/></svg></div>
+            <div class="t">2 按分类挑衣</div>
+            <div class="d">数量无上限</div>
+          </div>
+          <div class="step">
+            <div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="6.5" r="2.8"/><path d="M5.5 21c0-4 2.9-6.5 6.5-6.5s6.5 2.5 6.5 6.5"/></svg></div>
+            <div class="t">3 即刻上身</div>
+            <div class="d">毫秒级预览</div>
+          </div>
+          <div class="step">
+            <div class="icon"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></div>
+            <div class="t">4 确认穿搭</div>
+            <div class="d">可导入自制衣物</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card c-done">
+        <h3>本次完成内容</h3>
+        <ul>
+          <li><b>沉浸式房间 + 衣柜交互</b>：走进衣柜按分类挑选，衣物格数量无上限</li>
+          <li><b>纯前端试穿引擎</b>：肩/领/袖特征提取 + 肢体角度适配 + 领口层级渲染</li>
+          <li><b>自定义衣物导入</b>：自己绘制、制作的衣物也能立刻试穿</li>
+          <li><b>窗帘天气联动</b>：定位 + 实时天气 + 温度与穿搭提示</li>
+          <li>从单文件原型重构为<b>三人协作的模块化工程</b>（Vite + 原生 ESM）</li>
+        </ul>
+      </div>
+
+      <div class="card c-hl">
+        <h3>项目亮点 × 3</h3>
+        <div class="hl-item">
+          <span class="hl-badge b1">快</span>
+          <span class="txt"><b>毫秒级换装，纯前端零依赖</b>——不要 GPU、不用排队，直击 AI 换衣「慢」的痛点</span>
+        </div>
+        <div class="hl-item">
+          <span class="hl-badge b2">真</span>
+          <span class="txt"><b>肢体自动适配衣服</b>——手臂对准袖口角度、脖颈完整露出，与真实穿衣逻辑一致</span>
+        </div>
+        <div class="hl-item">
+          <span class="hl-badge b3">玩</span>
+          <span class="txt"><b>万物皆可上身</b>——真实 / 卡通 / 手绘衣物通吃，衣柜无容量上限，可玩性拉满</span>
+        </div>
+      </div>
+
+      <div class="demo-bar">
+        <span class="tag">Demo</span>现场演示 · 本地 npm run dev 即跑 · 源码 github.com/Vantchy/closet
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 底栏 -->
+  <div class="footer">
+    <b>联系我们</b>万欣琪 github.com/Vantchy　·　夏羽仪 github.com/xysquare89　·　唐逸川 github.com/1076329253
+  </div>
+
+</div>
+</body>
+</html>
