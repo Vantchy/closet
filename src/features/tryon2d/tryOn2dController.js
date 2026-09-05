@@ -39,6 +39,17 @@ const MALE_CFG = {
   armPostAlignArcNudgePx: 8,
   garmentTopDropPx: 14,
   garmentShoulderPadPx: 18,
+
+  // v5: keep the original garment sizing. The only extra shoulder rule is
+  // a vertical contour guard: after the original scale is chosen, move the
+  // garment upward only when either detected garment shoulder would sit below
+  // the character shoulder contour. No additional shoulder-driven scaling.
+  garmentShoulderContourGuardEnabled: true,
+
+  // v6: after the original placement + minimal shoulder contour guard,
+  // translate male upper garments upward by a tiny fixed amount only.
+  // This never changes scale, X placement, arm geometry, or body position.
+  garmentFinalTopLiftPx: 0,
   garmentTorsoCoverFactor: 1.03,
   garmentScaleNudge: 1.03,
   garmentMinVerticalRatio: 0.84,
@@ -1962,6 +1973,8 @@ function createGarmentPlacement(garmentPrepared) {
     (ACTIVE_CFG.garmentTorsoCoverFactor || 1) /
     garmentUpperToHem;
 
+  // v5 deliberately restores the original sizing decision exactly. Shoulder
+  // coverage is NOT allowed to increase scaleX beyond this value.
   const gScaleX =
     Math.min(scaleByShoulder, scaleByTorsoHeight) *
     (ACTIVE_CFG.garmentScaleNudge || 1);
@@ -1970,12 +1983,39 @@ function createGarmentPlacement(garmentPrepared) {
 
   const topDropPx = ACTIVE_CFG.garmentTopDropPx || 0;
 
-  // Freeze the upper placement before any vertical compression.
+  // Freeze the original horizontal placement and initial vertical placement.
+  // Only the vertical shoulder-contour guard below may translate the garment.
   const gxFixed = bodyCenterX - f.centerX * gScaleX;
-  const gyFixed =
+  let gyFixed =
     shoulderY +
     topDropPx -
     f.shoulderMidY * gScaleY;
+
+  if (ACTIVE_CFG.garmentShoulderContourGuardEnabled) {
+    // Smaller Y is visually higher. The garment shoulder contour only needs
+    // to be on/above the body shoulder contour; there is no extra pad, no
+    // neckline lift, and no scale change.
+    const bodyShoulderContourY = Math.min(
+      bodySL.y,
+      bodySR.y
+    );
+
+    const garmentShoulderContourY = Math.max(
+      gyFixed + f.leftShoulder.y * gScaleY,
+      gyFixed + f.rightShoulder.y * gScaleY
+    );
+
+    if (garmentShoulderContourY > bodyShoulderContourY) {
+      gyFixed -=
+        garmentShoulderContourY -
+        bodyShoulderContourY;
+    }
+  }
+
+  // v6: a small final upward translation for male top/coat placement.
+  // Female has no garmentFinalTopLiftPx field, so its existing behavior is
+  // byte-for-byte equivalent through this branch.
+  gyFixed -= ACTIVE_CFG.garmentFinalTopLiftPx || 0;
 
   function anchors(scaleY) {
     return {
@@ -2370,6 +2410,60 @@ function renderTryOnComposite(
   // reveal the top through its neckline/opening instead of revealing bare skin.
   drawGarmentLayer(ctx, topLayout);
   drawGarmentLayer(ctx, coatLayout);
+
+  ctx.restore();
+}
+
+
+function renderMaleBaseComposite(ctx, state) {
+  const { body, leftArm, rightArm } = state;
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(
+    0,
+    0,
+    ctx.canvas.width,
+    ctx.canvas.height
+  );
+  ctx.restore();
+
+  const armCtx = createArmContext(state);
+
+  ctx.save();
+  ctx.translate(
+    horizontalRenderPadPx(),
+    0
+  );
+
+  // v5: the male character always uses the same reference canvas, even when
+  // no upper garment/pants are active. This removes the old DOM-image <->
+  // composite-canvas swap that made the body appear to shift on try-on.
+  ctx.drawImage(
+    body,
+    0,
+    0,
+    ACTIVE_REFERENCE.width,
+    ACTIVE_REFERENCE.height
+  );
+
+  drawArm(
+    ctx,
+    leftArm,
+    armCtx.shoulders.left,
+    armCtx.lPivot,
+    armCtx.leftArmScale,
+    0
+  );
+
+  drawArm(
+    ctx,
+    rightArm,
+    armCtx.shoulders.right,
+    armCtx.rPivot,
+    armCtx.rightArmScale,
+    0
+  );
 
   ctx.restore();
 }
@@ -2964,7 +3058,16 @@ export function mountTryOn2dController(store) {
       pantsLayer.style.visibility = "hidden";
     }
 
-    if (!topSrc && !coatSrc && !wantsPantsComposite) {
+    const wantsMaleBase =
+      gender === "male" &&
+      !topSrc &&
+      !coatSrc &&
+      !wantsPantsComposite;
+
+    // Female keeps the original DOM-only idle path. Male deliberately stays on
+    // the same 887x1774 canvas in every state so the long-neck body never swaps
+    // back to character_male.png and never changes apparent position.
+    if (!topSrc && !coatSrc && !wantsPantsComposite && !wantsMaleBase) {
       state.suppressRawPants = false;
       state.renderSequence += 1;
       state.lastRenderedKey = null;
@@ -3069,7 +3172,7 @@ export function mountTryOn2dController(store) {
           }
         );
       } else if (topPrepared || coatPrepared) {
-        // Exact pre-existing upper-body render function.
+        // Existing upper-body render function.
         renderTryOnComposite(
           ctx,
           state,
@@ -3078,6 +3181,8 @@ export function mountTryOn2dController(store) {
             coatPrepared
           }
         );
+      } else if (gender === "male") {
+        renderMaleBaseComposite(ctx, state);
       } else {
         state.hasFrame = false;
         state.lastRenderedKey = null;
@@ -3115,6 +3220,23 @@ export function mountTryOn2dController(store) {
         "[tryon2d] composite render failed, falling back to original wearable layers.",
         error
       );
+
+      if (
+        gender === "male" &&
+        state.ready &&
+        state.sceneKey === "male"
+      ) {
+        // Even on an invalid garment source, never swap the male character back
+        // to the old short-neck DOM image. Keep the same base canvas/coordinates.
+        renderMaleBaseComposite(ctx, state);
+        state.hasFrame = true;
+        state.lastRenderedKey = String(key);
+        state.lastPantsLayout = null;
+        state.usesPantsComposite = false;
+        activate();
+        hideDebug();
+        return;
+      }
 
       state.hasFrame = false;
       state.lastRenderedKey = null;
@@ -3168,7 +3290,18 @@ export function mountTryOn2dController(store) {
     const hasCustomMalePants =
       gender === "male" && Boolean(pantsSrc);
 
-    if (!topSrc && !coatSrc && !hasCustomMalePants) {
+    const isMaleBaseState =
+      gender === "male" &&
+      !topSrc &&
+      !coatSrc &&
+      !hasCustomMalePants;
+
+    if (
+      gender === "female" &&
+      !topSrc &&
+      !coatSrc &&
+      !hasCustomMalePants
+    ) {
       state.suppressRawPants = false;
       state.lastPantsError = null;
       state.renderSequence += 1;
@@ -3178,10 +3311,7 @@ export function mountTryOn2dController(store) {
       state.usesPantsComposite = false;
       deactivate();
 
-      if (
-        gender === "female" &&
-        state.debugEnabled
-      ) {
+      if (state.debugEnabled) {
         drawFemaleDebug();
       } else {
         hideDebug();
@@ -3195,10 +3325,14 @@ export function mountTryOn2dController(store) {
     // same key so a good preview frame is not thrown away and rebuilt.
     // Top/coat confirmation keeps its previous scheduling behaviour.
     const selectionRenderKey =
-      selectedCategory === "pants" ||
-      (!selectedCategory && hasCustomMalePants)
-        ? "pants-stable"
-        : (selectedCategory || "saved");
+      isMaleBaseState
+        ? "male-base"
+        : (
+            selectedCategory === "pants" ||
+            (!selectedCategory && hasCustomMalePants)
+              ? "pants-stable"
+              : (selectedCategory || "saved")
+          );
 
     const key =
       `${gender}` +
