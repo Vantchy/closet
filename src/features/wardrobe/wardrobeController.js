@@ -8,7 +8,7 @@ export function mountWardrobeController(store) {
   const character = document.getElementById("character");
   const switcher = document.getElementById("genderSwitch");
   const genderButtons = [...document.querySelectorAll(".gender-btn")];
-  const categoryButtons = [...document.querySelectorAll(".category-btn")];
+  const categoryButtons = [...document.querySelectorAll(".wardrobe-hotspot")];
   const itemGridPanel = document.getElementById("itemGridPanel");
   const selectionActions = document.getElementById("selectionActions");
   const cancelSelectionBtn = document.getElementById("cancelSelectionBtn");
@@ -258,17 +258,20 @@ export function mountWardrobeController(store) {
     const item = CLOTHING[category];
     itemGridPanel.innerHTML = "";
 
-    const clothingSlot = document.createElement("button");
-    clothingSlot.type = "button";
-    clothingSlot.className = "item-slot item-slot--filled";
-    clothingSlot.setAttribute("aria-label", `${item.label}衣物`);
-    clothingSlot.innerHTML =
-      `<img class="item-thumb" src="${item.image}" alt="${item.label}" draggable="false" />`;
-    clothingSlot.addEventListener("click", event => {
-      event.stopPropagation();
-      beginPreview(category, clothingSlot);
-    });
-    itemGridPanel.appendChild(clothingSlot);
+    // 预设衣物（分类基础款）
+    if (item) {
+      const clothingSlot = document.createElement("button");
+      clothingSlot.type = "button";
+      clothingSlot.className = "item-slot item-slot--filled";
+      clothingSlot.setAttribute("aria-label", `${item.label}衣物`);
+      clothingSlot.innerHTML =
+        `<img class="item-thumb" src="${item.image}" alt="${item.label}" draggable="false" />`;
+      clothingSlot.addEventListener("click", event => {
+        event.stopPropagation();
+        beginPreview(category, clothingSlot);
+      });
+      itemGridPanel.appendChild(clothingSlot);
+    }
 
     getCustomItems(category).forEach(customItem => {
       const customSlot = document.createElement("button");
@@ -284,35 +287,25 @@ export function mountWardrobeController(store) {
       itemGridPanel.appendChild(customSlot);
     });
 
-    const usedSlots = 1 + getCustomItems(category).length;
-    const hasAddSlot = usedSlots < 12;
-
-    if (hasAddSlot) {
-      const addSlot = document.createElement("button");
-      addSlot.type = "button";
-      addSlot.className = "item-slot add-slot";
-      addSlot.setAttribute("aria-label", "添加衣物");
-      addSlot.textContent = "＋";
-      addSlot.addEventListener("click", event => {
-        event.stopPropagation();
-        window.dispatchEvent(
-          new CustomEvent("upload:request", { detail: { category } })
-        );
-      });
-      itemGridPanel.appendChild(addSlot);
-    }
-
-    for (let i = usedSlots + (hasAddSlot ? 1 : 0); i < 12; i += 1) {
-      const emptySlot = document.createElement("div");
-      emptySlot.className = "item-slot";
-      itemGridPanel.appendChild(emptySlot);
-    }
+    // 加号永远显示一个，用于继续添加衣物
+    const addSlot = document.createElement("button");
+    addSlot.type = "button";
+    addSlot.className = "item-slot add-slot";
+    addSlot.setAttribute("aria-label", "添加衣物");
+    addSlot.textContent = "＋";
+    addSlot.addEventListener("click", event => {
+      event.stopPropagation();
+      window.dispatchEvent(
+        new CustomEvent("upload:request", { detail: { category } })
+      );
+    });
+    itemGridPanel.appendChild(addSlot);
   }
 
   function resetWardrobeTools() {
     cancelPreview();
-    categoryButtons.forEach(btn => btn.setAttribute("aria-pressed", "false"));
     itemGridPanel.classList.remove("is-visible");
+    categoryButtons.forEach(btn => btn.classList.remove("is-hidden"));
     mutateStore(next => { next.wardrobe.activeCategory = null; });
   }
 
@@ -325,8 +318,8 @@ export function mountWardrobeController(store) {
   function exitWardrobeFocus() {
     cancelPreview();
     scene.classList.remove("is-zoomed");
-    categoryButtons.forEach(btn => btn.setAttribute("aria-pressed", "false"));
     itemGridPanel.classList.remove("is-visible");
+    categoryButtons.forEach(btn => btn.classList.remove("is-hidden"));
 
     mutateStore(next => {
       next.room.wardrobeFocused = false;
@@ -345,12 +338,10 @@ export function mountWardrobeController(store) {
 
       if (previewState) cancelPreview();
 
-      categoryButtons.forEach(other => {
-        other.setAttribute("aria-pressed", String(other === btn));
-      });
-
       renderItemGrid(btn.dataset.category);
       itemGridPanel.classList.add("is-visible");
+      // 打开分类后隐藏所有热点，避免它们（z-index 最高）遮挡衣物格子
+      categoryButtons.forEach(item => item.classList.add("is-hidden"));
       mutateStore(next => { next.wardrobe.activeCategory = btn.dataset.category; });
     });
   });
@@ -364,6 +355,7 @@ export function mountWardrobeController(store) {
     if (previewState) cancelPreview();
     renderItemGrid(category);
     itemGridPanel.classList.add("is-visible");
+    categoryButtons.forEach(btn => btn.classList.add("is-hidden"));
   });
 
   selectionActions.addEventListener("click", event => event.stopPropagation());
@@ -409,11 +401,14 @@ export function mountWardrobeController(store) {
     }
   });
 
-  scene.addEventListener("click", event => {
+  // 点击场景空白处退出（绑定到 stage，因为 world 会缩放）
+  const stage = document.getElementById("stage");
+  stage.addEventListener("click", event => {
     if (!scene.classList.contains("is-zoomed")) return;
 
+    // 如果点击的是 world 内的交互元素，不退出
     const clickedControl = event.target.closest(
-      "#wardrobe, .wardrobe-tools, .gender-switch, .integration-dock"
+      "#wardrobe, .wardrobe-tools, .gender-switch, .window-curtain-zone, .character-stage"
     );
     if (clickedControl) return;
 

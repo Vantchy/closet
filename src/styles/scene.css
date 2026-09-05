@@ -368,73 +368,107 @@
     pointer-events: none;
   }
 
-  .category-menu {
+  .wardrobe-hotspots {
     position: absolute;
-    left: 5.6%;
-    top: 33.8%;
-    display: flex;
-    flex-direction: column;
-    gap: 13px;
+    inset: 0;
     opacity: 0;
-    transform: translateX(-10px);
     pointer-events: none;
-    transition: opacity 220ms ease, transform 220ms ease;
+    transition: opacity 220ms ease;
   }
 
-  .scene.is-zoomed .category-menu {
+  .scene.is-zoomed .wardrobe-hotspots {
     opacity: 1;
-    transform: translateX(0);
+    pointer-events: none;
+  }
+
+  .wardrobe-hotspot {
+    position: absolute;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    z-index: 19;
+    pointer-events: none;
+  }
+
+  /* 只有进入衣柜放大状态后，热点才接收点击 */
+  .scene.is-zoomed .wardrobe-hotspot {
     pointer-events: auto;
   }
 
-  .category-btn {
-    width: 70px;
-    height: 51px;
-    padding: 0 8px;
-    border: 1px solid rgba(90, 65, 48, .16);
-    border-radius: 15px;
-    background: rgba(255, 250, 246, .92);
-    color: #5b4639;
-    font: inherit;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 7px 18px rgba(74, 50, 34, .10);
-    backdrop-filter: blur(10px);
-    transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  .wardrobe-hotspot:hover {
+    background: rgba(255, 255, 255, .08);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25);
+    border-radius: 4px;
   }
 
-  .category-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 9px 20px rgba(74, 50, 34, .14);
+  /* 分类面板打开后，隐藏透明热点，避免遮挡内部衣物格子 */
+  .scene.is-zoomed .wardrobe-hotspot.is-hidden {
+    opacity: 0;
+    pointer-events: none;
   }
 
-  .category-btn[aria-pressed="true"] {
-    background: #fff;
-    box-shadow:
-      0 8px 22px rgba(74, 50, 34, .15),
-      inset 0 0 0 2px rgba(199, 157, 126, .30);
+  /* 上衣：衣柜挂杆区 — 上端对齐，下端上抬1/4，左右缩小 */
+  .wardrobe-hotspot[data-category="top"] {
+    left: 22.5%;
+    top: 28%;
+    width: 16.5%;
+    height: 24%;
+  }
+
+  /* 裤子：衣柜右下角叠放区 — 向左移动1/3，向上移动1/5 */
+  .wardrobe-hotspot[data-category="pants"] {
+    left: 31.2%;
+    top: 53.6%;
+    width: 5.5%;
+    height: 12%;
+  }
+
+  /* 帽子：衣柜左下角叠放区 — 向右移动1/2，向上移动1/5 */
+  .wardrobe-hotspot[data-category="hat"] {
+    left: 23.5%;
+    top: 53.6%;
+    width: 6%;
+    height: 12%;
   }
 
   .item-grid-panel {
     position: absolute;
-    left: 12.2%;
-    top: 32.2%;
-    width: 504px;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: repeat(3, auto);
-    gap: 13px;
-    padding: 15px;
-    border: 1px solid rgba(90, 65, 48, .13);
-    border-radius: 19px;
-    background: rgba(255, 250, 246, .90);
-    box-shadow: 0 16px 34px rgba(72, 48, 32, .13);
-    backdrop-filter: blur(12px);
+    left: 22.4%;
+    top: 29.3%;
+    width: 15.7%;
+    height: 427px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid rgba(120, 90, 66, .22);
+    border-radius: 6px;
+    background: rgba(243, 226, 209, .96);
+    box-shadow: 0 10px 24px rgba(72, 48, 32, .16);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     opacity: 0;
     transform: translateX(-8px) scale(.985);
     pointer-events: none;
     transition: opacity 200ms ease, transform 200ms ease;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(120, 90, 66, .35) transparent;
+  }
+
+  .item-grid-panel::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .item-grid-panel::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .item-grid-panel::-webkit-scrollbar-thumb {
+    background: rgba(120, 90, 66, .28);
+    border-radius: 999px;
   }
 
   .scene.is-zoomed .item-grid-panel.is-visible {
@@ -444,19 +478,23 @@
   }
 
   .item-slot {
+    width: calc(50% - 5px);
+    max-width: 124px;
+    height: auto;
     aspect-ratio: 3 / 4;
+    flex: 0 0 auto;
     min-width: 0;
-    border: 1px solid rgba(104, 80, 62, .15);
-    border-radius: 17px;
-    background: rgba(255, 255, 255, .72);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+    border: 1px solid rgba(104, 80, 62, .18);
+    border-radius: 6px;
+    background: rgba(255, 248, 240, .72);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
   }
 
   .item-slot.item-slot--filled {
     position: relative;
     display: grid;
     place-items: center;
-    padding: 7px;
+    padding: 10px;
     overflow: hidden;
     cursor: pointer;
     transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
@@ -473,7 +511,7 @@
     box-shadow:
       0 9px 22px rgba(72, 48, 32, .13),
       inset 0 0 0 2px rgba(206, 165, 133, .34);
-    background: rgba(255,255,255,.94);
+    background: rgba(255, 246, 236, .94);
   }
 
   .item-thumb {
@@ -487,29 +525,29 @@
   .item-slot.add-slot {
     display: grid;
     place-items: center;
-    border: 2px dashed rgba(126, 96, 75, .38);
-    background: rgba(255, 255, 255, .52);
+    border: 2px dashed rgba(126, 96, 75, .40);
+    background: rgba(255, 248, 240, .48);
     color: rgba(99, 73, 56, .62);
-    font-size: 40px;
+    font-size: 34px;
     font-weight: 400;
     line-height: 1;
     cursor: pointer;
   }
 
   .item-slot.add-slot:hover {
-    background: rgba(255, 255, 255, .84);
+    background: rgba(255, 248, 240, .84);
     border-color: rgba(126, 96, 75, .55);
   }
 
 
   .selection-actions {
     position: absolute;
-    left: 12.2%;
-    top: calc(32.2% + 504px + 12px);
-    width: 504px;
+    left: 22.4%;
+    top: calc(29.3% + 427px + 12px);
+    width: 15.7%;
     display: flex;
     justify-content: center;
-    gap: 15px;
+    gap: 8px;
     opacity: 0;
     transform: translateY(-6px);
     pointer-events: none;
@@ -523,14 +561,15 @@
   }
 
   .selection-action-btn {
-    min-width: 114px;
-    height: 47px;
-    border-radius: 15px;
-    border: 1px solid rgba(90,65,48,.16);
-    background: rgba(255,250,246,.94);
+    min-width: 80px;
+    height: 40px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(90,65,48,.18);
+    background: rgba(255,246,236,.94);
     color: #5b4639;
     font: inherit;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 750;
     cursor: pointer;
     box-shadow: 0 8px 20px rgba(72,48,32,.10);
@@ -735,108 +774,5 @@
 
 
 /* ==========================================================
-   Integration dock: upload / weather / AI try-on
+   Integration dock: removed
    ========================================================== */
-.integration-dock {
-  position: absolute;
-  z-index: 24;
-  top: 18px;
-  left: 18px;
-  width: min(310px, calc(100vw - 36px));
-  display: grid;
-  gap: 10px;
-  pointer-events: auto;
-}
-
-.integration-card {
-  padding: 12px 14px;
-  border: 0;
-  border-radius: 16px;
-  background: rgba(234, 216, 199, .52);
-  box-shadow: 0 6px 18px rgba(71, 49, 35, .06);
-  backdrop-filter: blur(10px);
-}
-
-.integration-card__title {
-  margin: 0 0 8px;
-  color: #49372e;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.integration-card__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.integration-button {
-  min-height: 36px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 12px;
-  background: rgba(255, 250, 246, .72);
-  color: #5c4638;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 750;
-  cursor: pointer;
-}
-
-.integration-button:disabled {
-  cursor: not-allowed;
-  opacity: .48;
-}
-
-.integration-status {
-  margin: 7px 0 0;
-  color: #7a6557;
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.photo-preview,
-.tryon-result {
-  display: none;
-  width: 64px;
-  height: 64px;
-  object-fit: cover;
-  border-radius: 10px;
-  border: 0;
-  background: rgba(255, 250, 246, .72);
-}
-
-.photo-preview.is-visible,
-.tryon-result.is-visible {
-  display: block;
-}
-
-.weather-readout {
-  color: #5d493c;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-
-.scene.is-zoomed .integration-dock {
-  opacity: .22;
-  transition: opacity 180ms ease;
-}
-
-.scene.is-zoomed .integration-dock:hover,
-.scene.is-zoomed .integration-dock:focus-within {
-  opacity: 1;
-}
-
-@media (max-width: 760px) {
-  .integration-dock {
-    top: 8px;
-    left: 8px;
-    width: min(260px, calc(100vw - 16px));
-  }
-
-  .integration-card {
-    padding: 9px 10px;
-  }
-}

@@ -5,7 +5,6 @@ import { mountCurtainController } from "./features/room/curtainController.js";
 import { mountWardrobeController } from "./features/wardrobe/wardrobeController.js";
 import { mountPhotoUpload } from "./features/upload/photoUpload.js";
 import { mountWeatherController } from "./features/weather/weatherController.js";
-import { mountTryOnController } from "./features/tryon/tryOnController.js";
 import { mountTryOn2dController } from "./features/tryon2d/tryOn2dController.js";
 
 const root = document.getElementById("app");
@@ -34,7 +33,6 @@ mountCurtainController(store, {
 mountWardrobeController(store);
 mountTryOn2dController(store);
 mountPhotoUpload(store);
-mountTryOnController(store);
 
 if (import.meta.env.DEV) {
   window.__WARDROBE_STORE__ = store;
