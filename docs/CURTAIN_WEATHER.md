@@ -91,3 +91,13 @@ visibility < 10000m
   - 窗帘：高于窗框
   - 衣柜：高于窗户
   - 人物：最高
+
+
+## v5 位置与温度范围
+
+- 窗帘 `top` 从 `10.15%` 调整为 `8.55%`，高度同步增加，使关闭状态覆盖上方木横杆。
+- 窗外 scenery viewport 稍微放大，景色自身使用 `scale(1.16)`，避免任何透明边缘露出。
+- 天气概要移动到左侧架子右下方、衣柜上方。
+- 天气概要优先显示当日最低/最高温度：
+  `todayMin–todayMax°C + description`
+- `weatherService.js` 使用 Open-Meteo `daily=temperature_2m_max,temperature_2m_min&forecast_days=1`。

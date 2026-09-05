@@ -46,6 +46,7 @@
 
   .room-bg {
     position: absolute;
+    z-index: 2;
     inset: 0;
     width: 100%;
     height: 100%;
@@ -63,10 +64,10 @@
 /* Covers the checkerboard glass area while preserving the window surround. */
 .window-weather-viewport {
   position: absolute;
-  left: 48.975%;
-  top: 14.844%;
-  width: 13.672%;
-  height: 22.743%;
+  left: 48.25%;
+  top: 11.70%;
+  width: 14.85%;
+  height: 25.00%;
   z-index: 1;
   overflow: hidden;
   background: rgba(244, 244, 242, .98);
@@ -80,9 +81,9 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 50% 43%;
+  object-position: 50% 50%;
   opacity: 0;
-  transform: scale(1.015);
+  transform: scale(1.04);
   transition: opacity 240ms ease;
 }
 
@@ -90,41 +91,8 @@
   opacity: 1;
 }
 
-/* Re-create the two inner window mullions above the weather scene. */
-.window-frame-bar {
-  position: absolute;
-  z-index: 2;
-  display: block;
-  background: linear-gradient(
-    90deg,
-    rgba(174, 156, 139, .98),
-    rgba(226, 214, 202, .98),
-    rgba(174, 156, 139, .98)
-  );
-  box-shadow:
-    0 0 0 1px rgba(130, 113, 98, .42),
-    0 2px 3px rgba(83, 65, 51, .12);
-}
 
-.window-frame-bar--vertical {
-  top: 0;
-  bottom: 0;
-  left: 49.25%;
-  width: 2.2%;
-}
 
-.window-frame-bar--horizontal {
-  left: 0;
-  right: 0;
-  top: 49.15%;
-  height: 2.5%;
-  background: linear-gradient(
-    180deg,
-    rgba(174, 156, 139, .98),
-    rgba(226, 214, 202, .98),
-    rgba(174, 156, 139, .98)
-  );
-}
 
 /*
   Closed-curtain reference:
@@ -134,9 +102,9 @@
 .window-curtain-zone {
   position: absolute;
   left: 45.35%;
-  top: 10.15%;
+  top: 8.55%;
   width: 21.55%;
-  height: 32.75%;
+  height: 34.35%;
   z-index: 4;
   padding: 0;
   border: 0;
@@ -211,14 +179,14 @@
 /* Compact weather display: wardrobe upper-right, immediately left of curtain. */
 .room-weather-summary {
   position: absolute;
-  left: 37.6%;
-  top: 18.2%;
+  left: 32.9%;
+  top: 21.6%;
   z-index: 9;
   display: inline-flex;
   align-items: baseline;
   gap: 7px;
-  max-width: 160px;
-  padding: 7px 10px;
+  max-width: 190px;
+  padding: 7px 11px;
   border: 1px solid rgba(92, 68, 51, .11);
   border-radius: 999px;
   background: rgba(255, 250, 246, .78);
@@ -236,7 +204,7 @@
 }
 
 .room-weather-summary__condition {
-  max-width: 78px;
+  max-width: 72px;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 12px;
@@ -254,8 +222,8 @@
 
 @media (max-width: 760px) {
   .room-weather-summary {
-    left: 35.5%;
-    top: 17.5%;
+    left: 30.5%;
+    top: 21.0%;
     gap: 5px;
     max-width: 130px;
     padding: 5px 8px;
