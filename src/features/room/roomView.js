@@ -1,6 +1,7 @@
 export function renderRoomScene(root) {
   root.innerHTML = `<main class="demo-shell">
     <section class="scene" id="scene" aria-label="Interactive bedroom wardrobe scene">
+      <div class="stage" id="stage">
       <div class="world" id="world">
         <img class="room-bg" src="/src/assets/room.png" alt="" draggable="false" />
         <div class="window-weather-viewport" id="windowWeatherViewport" aria-hidden="true">
@@ -79,6 +80,31 @@ export function renderRoomScene(root) {
           <img class="wearable-layer wearable-coat" id="wearable-coat" alt="" draggable="false" />
           <img class="wearable-layer wearable-hat" id="wearable-hat" alt="" draggable="false" />
         </div>
+
+        <div class="wardrobe-tools" id="wardrobeTools" aria-label="衣柜分类">
+          <div class="category-menu" id="categoryMenu">
+            <button class="category-btn" type="button" data-category="hat" aria-pressed="false">帽子</button>
+            <button class="category-btn" type="button" data-category="top" aria-pressed="false">上衣</button>
+            <button class="category-btn" type="button" data-category="coat" aria-pressed="false">外套</button>
+            <button class="category-btn" type="button" data-category="pants" aria-pressed="false">裤子</button>
+          </div>
+
+          <div class="item-grid-panel" id="itemGridPanel" aria-label="衣物格子"></div>
+
+          <div class="selection-actions" id="selectionActions" aria-label="衣物选择操作">
+            <button class="selection-action-btn" id="rotateItemBtn" type="button" hidden title="顺时针旋转 90°，可连续点击">旋转</button>
+            <button class="selection-action-btn danger" id="deleteItemBtn" type="button" hidden title="删除这件自定义衣物">删除</button>
+            <button class="selection-action-btn" id="cancelSelectionBtn" type="button">返回</button>
+            <button class="selection-action-btn danger" id="takeOffBtn" type="button" hidden>脱下</button>
+            <button class="selection-action-btn confirm" id="confirmSelectionBtn" type="button">确认</button>
+          </div>
+
+          <div class="profile-preview" id="profilePreview">
+            <div class="profile-window">
+              <h3 class="profile-window-title">简介</h3>
+              <div class="profile-window-content" id="profileContent"></div>
+            </div>
+            <button class="profile-edit-btn" id="profileEditBtn" type="button">修改</button>
       </div>
       <div class="wardrobe-tools" id="wardrobeTools" aria-label="衣柜分类">
         <div class="category-menu" id="categoryMenu">
@@ -99,9 +125,10 @@ export function renderRoomScene(root) {
             <h3 class="profile-window-title">简介</h3>
             <div class="profile-window-content" id="profileContent"></div>
           </div>
-          <button class="profile-edit-btn" id="profileEditBtn" type="button">修改</button>
         </div>
       </div>
+      </div>
+
       <div class="topbar">
         <div class="gender-switch" id="genderSwitch" data-gender="male" aria-label="切换角色性别">
           <button class="gender-btn" type="button" data-gender="male" aria-pressed="true">♂ 男生</button>

@@ -51,3 +51,21 @@ export function updateCustomItemImage(category, id, url) {
   item.image = url;
   return item;
 }
+
+// 删除自定义衣物（预览面板“删除”按钮用）。
+// 若这件衣物正被穿着，调用方需先清理 store 中的引用再调用本函数。
+// 派发 custom-items:changed 后，监听方会取消预览并重建衣物格（＋格回退）。
+export function removeCustomItem(category, id) {
+  const list = customItems[category];
+  if (!list) return false;
+
+  const index = list.findIndex(entry => entry.id === id);
+  if (index === -1) return false;
+
+  const [removed] = list.splice(index, 1);
+  window.dispatchEvent(
+    new CustomEvent("custom-items:changed", { detail: { category } })
+  );
+  if (removed?.image) URL.revokeObjectURL(removed.image);
+  return true;
+}

@@ -1,5 +1,5 @@
 import { CLOTHING, getClothing } from "../../data/clothing.js";
-import { getCustomItems, updateCustomItemImage } from "../upload/customItems.js";
+import { getCustomItems, updateCustomItemImage, removeCustomItem } from "../upload/customItems.js";
 import { rotateBlob } from "../upload/autoOrientImage.js";
 
 export function mountWardrobeController(store) {
@@ -15,6 +15,7 @@ export function mountWardrobeController(store) {
   const confirmSelectionBtn = document.getElementById("confirmSelectionBtn");
   const takeOffBtn = document.getElementById("takeOffBtn");
   const rotateItemBtn = document.getElementById("rotateItemBtn");
+  const deleteItemBtn = document.getElementById("deleteItemBtn");
   const profilePreview = document.getElementById("profilePreview");
   const profileContent = document.getElementById("profileContent");
   const profileEditBtn = document.getElementById("profileEditBtn");
@@ -87,7 +88,7 @@ export function mountWardrobeController(store) {
     btn.addEventListener("click", () => setGender(btn.dataset.gender));
   });
 
-  function setWearable(category, src) {
+  function setWearable(category, src, { previewing = false } = {}) {
     const layer = wearableLayers[category];
     if (!layer) return;
 
@@ -98,6 +99,8 @@ export function mountWardrobeController(store) {
       layer.removeAttribute("src");
       layer.classList.remove("is-visible");
     }
+    // 预览（未确认）态半透明虚化，确认后恢复实色
+    layer.classList.toggle("is-previewing", previewing && Boolean(src));
   }
 
   function restoreSavedWearable(category) {
@@ -112,6 +115,7 @@ export function mountWardrobeController(store) {
     selectionActions.classList.remove("is-visible");
     takeOffBtn.hidden = true;
     rotateItemBtn.hidden = true;
+    deleteItemBtn.hidden = true;
     profilePreview.classList.remove("is-visible");
     profileContent.removeAttribute("contenteditable");
     profileEditBtn.textContent = "修改";
@@ -170,7 +174,7 @@ export function mountWardrobeController(store) {
     if (!previewItem) return;
 
     previewState = { category, item: previewItem };
-    setWearable(category, previewItem.image);
+    setWearable(category, previewItem.image, { previewing: true });
 
     itemGridPanel
       .querySelectorAll(".item-slot--filled")
@@ -185,8 +189,10 @@ export function mountWardrobeController(store) {
     takeOffBtn.hidden =
       store.getState().wardrobe.savedOutfits[category] !== previewState.item;
 
-    // 只有自己上传的衣物提供“旋转”：预设素材的方向是校准过的，不允许转
-    rotateItemBtn.hidden = !previewState.item.id?.startsWith("custom_");
+    // 只有自己上传的衣物提供“旋转/删除”：预设素材的方向是校准过的，也不允许删
+    const isCustom = Boolean(previewState.item.id?.startsWith("custom_"));
+    rotateItemBtn.hidden = !isCustom;
+    deleteItemBtn.hidden = !isCustom;
 
     mutateStore(next => { next.wardrobe.selectedCategory = category; });
   }
@@ -219,13 +225,33 @@ export function mountWardrobeController(store) {
       filledSlots[slotIndex]?.classList.add("is-selected");
       itemGridPanel.classList.add("is-visible");
 
-      // 同步人物身上的试穿效果
-      setWearable(category, item.image);
+      // 同步人物身上的试穿效果（仍在预览态）
+      setWearable(category, item.image, { previewing: true });
     } catch (err) {
       console.warn("衣物图片旋转失败：", err);
     } finally {
       rotateItemBtn.disabled = false;
     }
+  }
+
+  // 删除自定义衣物：先清空可能的穿着/保存引用（避免残留悬空对象），
+  // 再移除注册项——custom-items:changed 监听器会取消预览并重建衣物格，
+  // “＋”格随之回退一格。
+  function deleteCustomItemFromPreview() {
+    if (!previewState || deleteItemBtn.disabled) return;
+
+    const { category, item } = previewState;
+    if (!item.id?.startsWith("custom_")) return;
+
+    mutateStore(next => {
+      if (next.wardrobe.savedOutfits[category] === item) {
+        next.wardrobe.savedOutfits[category] = null;
+      }
+      if (next.wardrobe.lastConfirmed === item) {
+        next.wardrobe.lastConfirmed = null;
+      }
+    });
+    removeCustomItem(category, item.id);
   }
 
   function renderItemGrid(category) {
@@ -357,6 +383,11 @@ export function mountWardrobeController(store) {
   rotateItemBtn.addEventListener("click", event => {
     event.stopPropagation();
     rotateCustomItem();
+  });
+
+  deleteItemBtn.addEventListener("click", event => {
+    event.stopPropagation();
+    deleteCustomItemFromPreview();
   });
 
   confirmSelectionBtn.addEventListener("click", event => {
