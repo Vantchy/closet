@@ -1,12 +1,15 @@
-const REFERENCE = {
+const MALE_REFERENCE = {
   width: 887,
   height: 1774
 };
 
-// Final geometry/fit parameters carried over from the tuned v5.13 prototype.
-// Body anchors are kept in the original character coordinate system, so the
-// relative positions remain unchanged when the canvas is scaled inside the app.
-const CFG = {
+const FEMALE_REFERENCE = {
+  width: 682,
+  height: 2048
+};
+
+// Male configuration = tuned v5.13 geometry from the earlier prototype.
+const MALE_CFG = {
   bodyWidth: 887,
   bodyHeight: 1774,
   shoulderLeft: { x: 293, y: 548 },
@@ -22,21 +25,125 @@ const CFG = {
   leftArmExtraInsetX: 8,
   armAxisOutwardShiftPx: 8,
   armPostAlignArcNudgePx: 8,
-  garmentTopDropPx: 9,
+  garmentTopDropPx: 14,
   garmentShoulderPadPx: 18,
   garmentTorsoCoverFactor: 1.03,
   garmentScaleNudge: 1.03,
   garmentMinVerticalRatio: 0.84,
   garmentCompressEpsilon: 0.0001,
   frontNeckBodyOverlapPx: 1.5,
-  maxArmRotation: 0.62
+  maxArmRotation: 0.62,
+  horizontalCanvasOverscanRatio: 0.316798196
 };
 
-const ASSETS = {
+// Female configuration rebuilt from the supplied split assets.
+const FEMALE_CFG = {
+  bodyWidth: 682,
+  bodyHeight: 2048,
+
+  // These two points continue to drive garment shoulder-width alignment.
+  shoulderLeft: { x: 246, y: 615 },
+  shoulderRight: { x: 437, y: 615 },
+  shoulderMidY: 506,
+  shortsTopY: 1143,
+  bodyCenterX: 341.0,
+
+  // v8: arm attachment is calibrated independently from garment shoulder width.
+  armAttachLeft: { x: 173.36, y: 705.21 },
+  armAttachRight: { x: 514.64, y: 693.21 },
+
+  // Manual axis start acts as the actual rotation pivot for the split arm image.
+  leftArmPivot: { x: 316.81, y: 250.0 },
+  rightArmPivot: { x: 342.37, y: 250.0 },
+
+  // The two supplied arm images are not the same native scale.
+  // Use independently calibrated scales instead of forcing symmetry.
+  armScaleFactor: 0.397964,
+  leftArmScaleFactor: 0.444753,
+  rightArmScaleFactor: 0.444753,
+  rightArmScaleBias: 1,
+
+  armInsetX: 0,
+  leftArmExtraInsetX: 0,
+  armAxisOutwardShiftPx: 0,
+  armPostAlignArcNudgePx: 10,
+
+  garmentTopDropPx: 15,
+  garmentShoulderPadPx: 14,
+  garmentTorsoCoverFactor: 1.03,
+  garmentScaleNudge: 1.03,
+  garmentMinVerticalRatio: 0.84,
+  garmentCompressEpsilon: 0.0001,
+  frontNeckBodyOverlapPx: 1.8,
+  maxArmRotation: 0.62,
+  horizontalCanvasOverscanRatio: 0.541055718,
+
+  // Attach the approved arm-axis top point directly to the calibrated body point.
+  attachArmPivotDirectly: true,
+
+  // v8: runtime uses the approved contour-fitted axes directly.
+  manualArmGeometry: {
+    left: {
+      topAnchor: { x: 316.81, y: 250.0 },
+      wristPoint: { x: 158.85, y: 1101.0 },
+      width: 173.06
+    },
+    right: {
+      topAnchor: { x: 342.37, y: 250.0 },
+      wristPoint: { x: 496.24, y: 1082.0 },
+      width: 171.12
+    }
+  }
+};
+
+const FEMALE_DEBUG_GEOMETRY = {
+  bodyCenterX: 0.500000,
+
+  // garment/body shoulder reference
+  shoulderLeft: { x: 0.360704, y: 0.300293 },
+  shoulderRight: { x: 0.640762, y: 0.300293 },
+
+  // actual arm-axis attachment points
+  leftArmTop: { x: 0.254194, y: 0.344341 },
+  rightArmTop: { x: 0.754604, y: 0.338481 },
+
+  // natural reference wrist positions for visual calibration
+  leftWrist: { x: 0.180674, y: 0.520020 },
+  rightWrist: { x: 0.854947, y: 0.519162 }
+};
+
+const MALE_ASSETS = {
   body: new URL("../../assets/tryon2d/body.png", import.meta.url).href,
   leftArm: new URL("../../assets/tryon2d/left_arm.png", import.meta.url).href,
   rightArm: new URL("../../assets/tryon2d/right_arm.png", import.meta.url).href
 };
+
+const FEMALE_ASSETS = {
+  body: new URL("../../assets/tryon2d/female_body.png", import.meta.url).href,
+  leftArm: new URL("../../assets/tryon2d/female_left_arm.png", import.meta.url).href,
+  rightArm: new URL("../../assets/tryon2d/female_right_arm.png", import.meta.url).href
+};
+
+let ACTIVE_REFERENCE = MALE_REFERENCE;
+let ACTIVE_CFG = MALE_CFG;
+
+function getSceneSpec(gender) {
+  return gender === "female"
+    ? {
+        key: "female",
+        reference: FEMALE_REFERENCE,
+        cfg: FEMALE_CFG,
+        assets: FEMALE_ASSETS,
+        debugGeometry: FEMALE_DEBUG_GEOMETRY
+      }
+    : {
+        key: "male",
+        reference: MALE_REFERENCE,
+        cfg: MALE_CFG,
+        assets: MALE_ASSETS,
+        debugGeometry: null
+      };
+}
 
 function clamp(v, a, b) {
   return Math.max(a, Math.min(b, v));
@@ -73,6 +180,20 @@ function imageToReadableCanvas(img) {
   const c = makeCanvas(img.naturalWidth || img.width, img.naturalHeight || img.height);
   c.getContext("2d", { willReadFrequently: true }).drawImage(img, 0, 0);
   return c;
+}
+
+function horizontalRenderPadPx() {
+  return Math.round(
+    ACTIVE_REFERENCE.width *
+    (ACTIVE_CFG.horizontalCanvasOverscanRatio || 0)
+  );
+}
+
+function expandedRenderWidth() {
+  return (
+    ACTIVE_REFERENCE.width +
+    horizontalRenderPadPx() * 2
+  );
 }
 
 function hasUsefulTransparency(imageData) {
@@ -1316,6 +1437,48 @@ function armGeometry(img, side) {
   const cache = armGeomCache[side];
   if (cache.has(img)) return cache.get(img);
 
+  const manual = ACTIVE_CFG.manualArmGeometry?.[side];
+  if (manual) {
+    const box = {
+      x: 0,
+      y: 0,
+      width: img.width,
+      height: img.height
+    };
+
+    const topAnchor = {
+      x: manual.topAnchor.x,
+      y: manual.topAnchor.y
+    };
+
+    const wristPoint = {
+      x: manual.wristPoint.x,
+      y: manual.wristPoint.y
+    };
+
+    const width =
+      manual.width ?? Math.max(1, img.width * 0.3);
+
+    const length = Math.max(
+      1,
+      Math.hypot(
+        wristPoint.x - topAnchor.x,
+        wristPoint.y - topAnchor.y
+      )
+    );
+
+    const result = {
+      box,
+      topAnchor,
+      wristPoint,
+      length,
+      width
+    };
+
+    cache.set(img, result);
+    return result;
+  }
+
   const c = imageToReadableCanvas(img);
   const id = c
     .getContext("2d", { willReadFrequently: true })
@@ -1532,7 +1695,7 @@ function armGeometry(img, side) {
   }
 
   // Move the complete arm axis slightly outward without changing its direction.
-  const outwardShift = CFG.armAxisOutwardShiftPx || 0;
+  const outwardShift = ACTIVE_CFG.armAxisOutwardShiftPx || 0;
 
   const topAnchor = {
     x: topBase.x + nx * outwardShift,
@@ -1569,36 +1732,51 @@ function matchedRightArmScale(leftArm, rightArm, baseScale) {
   const lenRatio = lg.length / Math.max(1, rg.length);
   const widthRatio = lg.width / Math.max(1, rg.width);
   const normalized = Math.sqrt(Math.max(0.01, lenRatio * widthRatio));
-  const bias = CFG.rightArmScaleBias ?? 1.0;
+  const bias = ACTIVE_CFG.rightArmScaleBias ?? 1.0;
 
   return baseScale * clamp(normalized * bias, 0.86, 1.08);
 }
 
 function armShoulders(leftArm, rightArm, leftArmScale, rightArmScale) {
-  const inset = CFG.armInsetX || 0;
-  const leftExtra = CFG.leftArmExtraInsetX || 0;
+  const inset = ACTIVE_CFG.armInsetX || 0;
+  const leftExtra = ACTIVE_CFG.leftArmExtraInsetX || 0;
+
+  const leftAttach =
+    ACTIVE_CFG.armAttachLeft ||
+    ACTIVE_CFG.shoulderLeft;
+
+  const rightAttach =
+    ACTIVE_CFG.armAttachRight ||
+    ACTIVE_CFG.shoulderRight;
 
   const leftBase = {
-    x: CFG.shoulderLeft.x + inset + leftExtra,
-    y: CFG.shoulderLeft.y
+    x: leftAttach.x + inset + leftExtra,
+    y: leftAttach.y
   };
 
   const rightBase = {
-    x: CFG.shoulderRight.x - inset,
-    y: CFG.shoulderRight.y
+    x: rightAttach.x - inset,
+    y: rightAttach.y
   };
+
+  if (ACTIVE_CFG.attachArmPivotDirectly) {
+    return {
+      left: leftBase,
+      right: rightBase
+    };
+  }
 
   const lg = armGeometry(leftArm, "left");
   const rg = armGeometry(rightArm, "right");
 
   return {
     left: {
-      x: leftBase.x + (lg.topAnchor.x - CFG.leftArmPivot.x) * leftArmScale,
-      y: leftBase.y + (lg.topAnchor.y - CFG.leftArmPivot.y) * leftArmScale
+      x: leftBase.x + (lg.topAnchor.x - ACTIVE_CFG.leftArmPivot.x) * leftArmScale,
+      y: leftBase.y + (lg.topAnchor.y - ACTIVE_CFG.leftArmPivot.y) * leftArmScale
     },
     right: {
-      x: rightBase.x + (rg.topAnchor.x - CFG.rightArmPivot.x) * rightArmScale,
-      y: rightBase.y + (rg.topAnchor.y - CFG.rightArmPivot.y) * rightArmScale
+      x: rightBase.x + (rg.topAnchor.x - ACTIVE_CFG.rightArmPivot.x) * rightArmScale,
+      y: rightBase.y + (rg.topAnchor.y - ACTIVE_CFG.rightArmPivot.y) * rightArmScale
     }
   };
 }
@@ -1629,23 +1807,29 @@ function projectArmPoint(anchor, pivot, point, scale, rotation) {
   };
 }
 
-function drawBodyAboveFrontNeckline(
+function snapshotCanvas(ctx) {
+  const out = makeCanvas(ctx.canvas.width, ctx.canvas.height);
+  out.getContext("2d").drawImage(ctx.canvas, 0, 0);
+  return out;
+}
+
+function drawUnderlayAboveFrontNeckline(
   ctx,
-  body,
+  underlayCanvas,
   frontNeckline,
   garmentPlacement,
   gScaleX,
   gScaleY
 ) {
   const points = frontNeckline?.points;
-  if (!points || points.length < 2) return;
+  if (!underlayCanvas || !points || points.length < 2) return;
 
   const world = points.map(p => ({
     x: garmentPlacement.gx + p.x * gScaleX,
     y:
       garmentPlacement.gy +
       p.y * gScaleY +
-      (CFG.frontNeckBodyOverlapPx || 0)
+      (ACTIVE_CFG.frontNeckBodyOverlapPx || 0)
   }));
 
   if (world.length < 2) return;
@@ -1653,7 +1837,7 @@ function drawBodyAboveFrontNeckline(
   ctx.save();
   ctx.beginPath();
 
-  // Build a polygon representing "above the front-neckline curve".
+  // Polygon = everything above the detected front neckline.
   ctx.moveTo(world[0].x, 0);
   ctx.lineTo(world[world.length - 1].x, 0);
   ctx.lineTo(world[world.length - 1].x, world[world.length - 1].y);
@@ -1665,62 +1849,33 @@ function drawBodyAboveFrontNeckline(
   ctx.closePath();
   ctx.clip();
 
-  // Only the character pixels inside the neckline mask are redrawn above
-  // the garment. Everything below the curve remains garment-over-character.
-  ctx.drawImage(body, 0, 0, REFERENCE.width, REFERENCE.height);
+  // Repaint the complete lower-layer composite, not just bare skin.
+  // This matters when a coat is over a top: the coat neckline can reveal
+  // the top underneath, while the top neckline can reveal the character.
+  ctx.drawImage(
+    underlayCanvas,
+    -horizontalRenderPadPx(),
+    0
+  );
   ctx.restore();
 }
 
-function renderTryOnFrame(ctx, state, garmentPrepared) {
-  const { body, leftArm, rightArm } = state;
-  const gc = garmentPrepared.canvas;
-  const f = garmentPrepared.features;
+function createArmContext(state) {
+  const { leftArm, rightArm } = state;
 
-  const bodySL = CFG.shoulderLeft;
-  const bodySR = CFG.shoulderRight;
-  const shoulderY = CFG.shoulderMidY;
-  const bodyCenterX = CFG.bodyCenterX;
+  const baseArmScale = ACTIVE_CFG.armScaleFactor;
 
-  const garmentShoulderSpan = Math.max(
-    20,
-    f.rightShoulder.x - f.leftShoulder.x
-  );
-  const bodyShoulderSpan = Math.max(20, bodySR.x - bodySL.x);
-  const shoulderPadPx = (CFG.garmentShoulderPadPx || 0) * 2;
+  const leftArmScale =
+    ACTIVE_CFG.leftArmScaleFactor ??
+    baseArmScale;
 
-  const scaleByShoulder =
-    (bodyShoulderSpan + shoulderPadPx) / garmentShoulderSpan;
-
-  const garmentUpperToHem = Math.max(20, f.hemY - f.shoulderMidY);
-  const bodyUpperToHem = Math.max(
-    20,
-    CFG.shortsTopY - CFG.shoulderMidY
-  );
-
-  const scaleByTorsoHeight =
-    bodyUpperToHem *
-    (CFG.garmentTorsoCoverFactor || 1) /
-    garmentUpperToHem;
-
-  const gScaleX =
-    Math.min(scaleByShoulder, scaleByTorsoHeight) *
-    (CFG.garmentScaleNudge || 1);
-
-  let gScaleY = gScaleX;
-
-  const topDropPx = CFG.garmentTopDropPx || 0;
-  const compressEpsilon = CFG.garmentCompressEpsilon || 0.0001;
-  const minVerticalRatio = CFG.garmentMinVerticalRatio || 0.84;
-
-  const baseArmScale = CFG.armScaleFactor;
-  const leftArmScale = baseArmScale;
-  const rightArmScale = matchedRightArmScale(
-    leftArm,
-    rightArm,
-    baseArmScale
-  );
-
-  const gain = 1;
+  const rightArmScale =
+    ACTIVE_CFG.rightArmScaleFactor ??
+    matchedRightArmScale(
+      leftArm,
+      rightArm,
+      baseArmScale
+    );
 
   const lGeom = armGeometry(leftArm, "left");
   const rGeom = armGeometry(rightArm, "right");
@@ -1736,11 +1891,75 @@ function renderTryOnFrame(ctx, state, garmentPrepared) {
     rightArmScale
   );
 
-  // Keep the garment upper placement fixed while scaleY changes.
-  const gxFixed = bodyCenterX - f.centerX * gScaleX;
-  const gyFixed = shoulderY + topDropPx - f.shoulderMidY * gScaleY;
+  return {
+    leftArmScale,
+    rightArmScale,
+    lGeom,
+    rGeom,
+    lPivot,
+    rPivot,
+    lRest,
+    rRest,
+    shoulders
+  };
+}
 
-  function garmentAnchors(scaleY) {
+function createGarmentPlacement(garmentPrepared) {
+  const gc = garmentPrepared.canvas;
+  const f = garmentPrepared.features;
+
+  const bodySL = ACTIVE_CFG.shoulderLeft;
+  const bodySR = ACTIVE_CFG.shoulderRight;
+  const shoulderY = ACTIVE_CFG.shoulderMidY;
+  const bodyCenterX = ACTIVE_CFG.bodyCenterX;
+
+  const garmentShoulderSpan = Math.max(
+    20,
+    f.rightShoulder.x - f.leftShoulder.x
+  );
+
+  const bodyShoulderSpan = Math.max(
+    20,
+    bodySR.x - bodySL.x
+  );
+
+  const shoulderPadPx = (ACTIVE_CFG.garmentShoulderPadPx || 0) * 2;
+
+  const scaleByShoulder =
+    (bodyShoulderSpan + shoulderPadPx) /
+    garmentShoulderSpan;
+
+  const garmentUpperToHem = Math.max(
+    20,
+    f.hemY - f.shoulderMidY
+  );
+
+  const bodyUpperToHem = Math.max(
+    20,
+    ACTIVE_CFG.shortsTopY - ACTIVE_CFG.shoulderMidY
+  );
+
+  const scaleByTorsoHeight =
+    bodyUpperToHem *
+    (ACTIVE_CFG.garmentTorsoCoverFactor || 1) /
+    garmentUpperToHem;
+
+  const gScaleX =
+    Math.min(scaleByShoulder, scaleByTorsoHeight) *
+    (ACTIVE_CFG.garmentScaleNudge || 1);
+
+  let gScaleY = gScaleX;
+
+  const topDropPx = ACTIVE_CFG.garmentTopDropPx || 0;
+
+  // Freeze the upper placement before any vertical compression.
+  const gxFixed = bodyCenterX - f.centerX * gScaleX;
+  const gyFixed =
+    shoulderY +
+    topDropPx -
+    f.shoulderMidY * gScaleY;
+
+  function anchors(scaleY) {
     return {
       gx: gxFixed,
       gy: gyFixed,
@@ -1771,20 +1990,74 @@ function renderTryOnFrame(ctx, state, garmentPrepared) {
     };
   }
 
+  return {
+    garmentPrepared,
+    gc,
+    f,
+    gScaleX,
+    gScaleY,
+    gxFixed,
+    gyFixed,
+    anchors,
+    G: anchors(gScaleY)
+  };
+}
+
+function computeDriverLayout(garmentPrepared, armCtx) {
+  const layout = createGarmentPlacement(garmentPrepared);
+
+  const {
+    leftArmScale,
+    rightArmScale,
+    lGeom,
+    rGeom,
+    lPivot,
+    rPivot,
+    lRest,
+    rRest,
+    shoulders
+  } = armCtx;
+
+  const gain = 1;
+
+  // v25: the maximum opening angle is the exact horizontal arm pose.
+  // Because lRest/rRest come from each fitted upper-anchor -> wrist axis,
+  // this remains exact even when the fitted arm anchors are adjusted later.
+  const leftHorizontalMaxRotation =
+    Math.abs(
+      angleDelta(
+        Math.PI,
+        lRest
+      )
+    );
+
+  const rightHorizontalMaxRotation =
+    Math.abs(
+      angleDelta(
+        0,
+        rRest
+      )
+    );
+
+  const compressEpsilon =
+    ACTIVE_CFG.garmentCompressEpsilon || 0.0001;
+  const minVerticalRatio =
+    ACTIVE_CFG.garmentMinVerticalRatio || 0.84;
+
   function poseFromSleeveAxis(G) {
     const lTarget = angle(G.glu, G.glc);
     const rTarget = angle(G.gru, G.grc);
 
     const lr = clamp(
       angleDelta(lTarget, lRest) * gain,
-      -CFG.maxArmRotation,
-      CFG.maxArmRotation
+      -leftHorizontalMaxRotation,
+      leftHorizontalMaxRotation
     );
 
     const rr = clamp(
       angleDelta(rTarget, rRest) * gain,
-      -CFG.maxArmRotation,
-      CFG.maxArmRotation
+      -rightHorizontalMaxRotation,
+      rightHorizontalMaxRotation
     );
 
     const lWrist = projectArmPoint(
@@ -1806,29 +2079,30 @@ function renderTryOnFrame(ctx, state, garmentPrepared) {
     return { lr, rr, lWrist, rWrist };
   }
 
-  // Final rule:
-  // first rotate the wrist to the cuff; then continue a tiny amount around
-  // the SAME upper arm anchor (arc movement, not straight-line translation).
   function poseToCuffWithExtraRotate(G) {
     const lTarget = angle(shoulders.left, G.glc);
     const rTarget = angle(shoulders.right, G.grc);
 
-    const lBaseDelta = angleDelta(lTarget, lRest) * gain;
-    const rBaseDelta = angleDelta(rTarget, rRest) * gain;
+    const lBaseDelta =
+      angleDelta(lTarget, lRest) * gain;
+
+    const rBaseDelta =
+      angleDelta(rTarget, rRest) * gain;
 
     let lr = clamp(
       lBaseDelta,
-      -CFG.maxArmRotation,
-      CFG.maxArmRotation
+      -leftHorizontalMaxRotation,
+      leftHorizontalMaxRotation
     );
 
     let rr = clamp(
       rBaseDelta,
-      -CFG.maxArmRotation,
-      CFG.maxArmRotation
+      -rightHorizontalMaxRotation,
+      rightHorizontalMaxRotation
     );
 
-    const nudgePx = CFG.armPostAlignArcNudgePx || 0;
+    const nudgePx =
+      ACTIVE_CFG.armPostAlignArcNudgePx || 0;
 
     const leftRadius = Math.max(
       1,
@@ -1847,46 +2121,60 @@ function renderTryOnFrame(ctx, state, garmentPrepared) {
     );
 
     const lExtra =
-      (nudgePx / leftRadius) * Math.sign(lBaseDelta || lr || 0);
+      (nudgePx / leftRadius) *
+      Math.sign(lBaseDelta || lr || 0);
 
     const rExtra =
-      (nudgePx / rightRadius) * Math.sign(rBaseDelta || rr || 0);
+      (nudgePx / rightRadius) *
+      Math.sign(rBaseDelta || rr || 0);
 
     lr = clamp(
       lr + lExtra,
-      -CFG.maxArmRotation,
-      CFG.maxArmRotation
+      -leftHorizontalMaxRotation,
+      leftHorizontalMaxRotation
     );
 
     rr = clamp(
       rr + rExtra,
-      -CFG.maxArmRotation,
-      CFG.maxArmRotation
+      -rightHorizontalMaxRotation,
+      rightHorizontalMaxRotation
     );
 
     return { lr, rr };
   }
 
-  // Circle constraint:
-  // center = upper arm anchor; radius = upper-anchor -> wrist distance.
-  function scaleYForCuffOnCircle(localCuff, shoulder, armRadius) {
-    const cuffX = gxFixed + localCuff.x * gScaleX;
+  function scaleYForCuffOnCircle(
+    localCuff,
+    shoulder,
+    armRadius
+  ) {
+    const cuffX =
+      layout.gxFixed +
+      localCuff.x * layout.gScaleX;
+
     const dx = cuffX - shoulder.x;
     const r2 = armRadius * armRadius;
 
     if (dx * dx >= r2) return null;
 
     const targetY =
-      shoulder.y + Math.sqrt(Math.max(0, r2 - dx * dx));
+      shoulder.y +
+      Math.sqrt(Math.max(0, r2 - dx * dx));
 
-    return (targetY - gyFixed) / localCuff.y;
+    return (
+      (targetY - layout.gyFixed) /
+      localCuff.y
+    );
   }
 
-  let G = garmentAnchors(gScaleY);
+  let G = layout.G;
   const initialPose = poseFromSleeveAxis(G);
 
-  const leftNeedsCompress = G.glc.y > initialPose.lWrist.y;
-  const rightNeedsCompress = G.grc.y > initialPose.rWrist.y;
+  const leftNeedsCompress =
+    G.glc.y > initialPose.lWrist.y;
+
+  const rightNeedsCompress =
+    G.grc.y > initialPose.rWrist.y;
 
   if (leftNeedsCompress || rightNeedsCompress) {
     const leftArmRadius =
@@ -1901,101 +2189,203 @@ function renderTryOnFrame(ctx, state, garmentPrepared) {
         rGeom.wristPoint.y - rGeom.topAnchor.y
       ) * rightArmScale;
 
-    let allowedScaleY = gScaleY;
+    let allowedScaleY = layout.gScaleY;
 
     if (leftNeedsCompress) {
-      const leftTargetScaleY = scaleYForCuffOnCircle(
-        f.leftCuff,
+      const target = scaleYForCuffOnCircle(
+        layout.f.leftCuff,
         shoulders.left,
         leftArmRadius
       );
 
-      if (Number.isFinite(leftTargetScaleY)) {
-        allowedScaleY = Math.min(allowedScaleY, leftTargetScaleY);
+      if (Number.isFinite(target)) {
+        allowedScaleY =
+          Math.min(allowedScaleY, target);
       }
     }
 
     if (rightNeedsCompress) {
-      const rightTargetScaleY = scaleYForCuffOnCircle(
-        f.rightCuff,
+      const target = scaleYForCuffOnCircle(
+        layout.f.rightCuff,
         shoulders.right,
         rightArmRadius
       );
 
-      if (Number.isFinite(rightTargetScaleY)) {
-        allowedScaleY = Math.min(allowedScaleY, rightTargetScaleY);
+      if (Number.isFinite(target)) {
+        allowedScaleY =
+          Math.min(allowedScaleY, target);
       }
     }
 
-    const minAllowed = gScaleX * minVerticalRatio;
+    const minAllowed =
+      layout.gScaleX * minVerticalRatio;
+
     allowedScaleY = Math.max(
       minAllowed,
-      Math.min(gScaleY, allowedScaleY)
+      Math.min(layout.gScaleY, allowedScaleY)
     );
 
-    if (allowedScaleY < gScaleY - compressEpsilon) {
-      gScaleY = allowedScaleY;
-      G = garmentAnchors(gScaleY);
+    if (
+      allowedScaleY <
+      layout.gScaleY - compressEpsilon
+    ) {
+      layout.gScaleY = allowedScaleY;
+      G = layout.anchors(layout.gScaleY);
+      layout.G = G;
     }
   }
 
-  const finalPose = poseToCuffWithExtraRotate(G);
+  layout.finalPose =
+    poseToCuffWithExtraRotate(layout.G);
 
-  ctx.clearRect(0, 0, REFERENCE.width, REFERENCE.height);
+  return layout;
+}
 
-  // Layer order from the tuned prototype: body -> arms -> garment.
-  ctx.drawImage(body, 0, 0, REFERENCE.width, REFERENCE.height);
-  drawArm(
-    ctx,
-    leftArm,
-    shoulders.left,
-    lPivot,
-    leftArmScale,
-    finalPose.lr
-  );
-  drawArm(
-    ctx,
-    rightArm,
-    shoulders.right,
-    rPivot,
-    rightArmScale,
-    finalPose.rr
-  );
+function drawGarmentLayer(ctx, layout) {
+  if (!layout) return;
+
+  const underlay = snapshotCanvas(ctx);
+
   ctx.drawImage(
-    gc,
-    G.gx,
-    G.gy,
-    gc.width * gScaleX,
-    gc.height * gScaleY
+    layout.gc,
+    layout.G.gx,
+    layout.G.gy,
+    layout.gc.width * layout.gScaleX,
+    layout.gc.height * layout.gScaleY
   );
 
-  // Neckline depth priority:
-  // above the front neckline => character wins;
-  // below the front neckline => garment stays on top.
-  drawBodyAboveFrontNeckline(
+  drawUnderlayAboveFrontNeckline(
     ctx,
-    body,
-    f.frontNeckline,
-    { gx: G.gx, gy: G.gy },
-    gScaleX,
-    gScaleY
+    underlay,
+    layout.f.frontNeckline,
+    { gx: layout.G.gx, gy: layout.G.gy },
+    layout.gScaleX,
+    layout.gScaleY
   );
 }
 
-export function mountTryOn2dController(store) {
-  const stage = document.getElementById("characterStage");
-  const character = document.getElementById("character");
-  const topLayer = document.getElementById("wearable-top");
+function renderTryOnComposite(
+  ctx,
+  state,
+  {
+    topPrepared = null,
+    coatPrepared = null
+  } = {}
+) {
+  const { body, leftArm, rightArm } = state;
 
-  if (!stage || !character || !topLayer) {
-    console.warn("[tryon2d] character stage is not available.");
+  // Always clear the complete expanded canvas in device coordinates.
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(
+    0,
+    0,
+    ctx.canvas.width,
+    ctx.canvas.height
+  );
+  ctx.restore();
+
+  // The outermost upper-body garment drives the arm pose.
+  // Coat > top, matching the existing project layer semantics.
+  const driverPrepared =
+    coatPrepared || topPrepared;
+
+  if (!driverPrepared) {
+    return;
+  }
+
+  const armCtx = createArmContext(state);
+  const driverLayout =
+    computeDriverLayout(driverPrepared, armCtx);
+
+  // When a coat is present, the top remains underneath and follows body
+  // placement only. The coat drives the single physical arm pose.
+  const topLayout = topPrepared
+    ? (
+        coatPrepared
+          ? createGarmentPlacement(topPrepared)
+          : driverLayout
+      )
+    : null;
+
+  const coatLayout = coatPrepared
+    ? driverLayout
+    : null;
+
+  // Keep the existing body/garment coordinate system unchanged.
+  // The extra canvas width lives outside it as transparent horizontal overscan.
+  ctx.save();
+  ctx.translate(
+    horizontalRenderPadPx(),
+    0
+  );
+
+  ctx.drawImage(
+    body,
+    0,
+    0,
+    ACTIVE_REFERENCE.width,
+    ACTIVE_REFERENCE.height
+  );
+
+  drawArm(
+    ctx,
+    leftArm,
+    armCtx.shoulders.left,
+    armCtx.lPivot,
+    armCtx.leftArmScale,
+    driverLayout.finalPose.lr
+  );
+
+  drawArm(
+    ctx,
+    rightArm,
+    armCtx.shoulders.right,
+    armCtx.rPivot,
+    armCtx.rightArmScale,
+    driverLayout.finalPose.rr
+  );
+
+  // Upper-body stack:
+  // body -> arms -> top -> coat.
+  // Neckline masking re-exposes the complete lower stack, so a coat can
+  // reveal the top through its neckline/opening instead of revealing bare skin.
+  drawGarmentLayer(ctx, topLayout);
+  drawGarmentLayer(ctx, coatLayout);
+
+  ctx.restore();
+}
+
+
+export function mountTryOn2dController(store) {
+  const stage =
+    document.getElementById("characterStage");
+
+  const character =
+    document.getElementById("character");
+
+  const topLayer =
+    document.getElementById("wearable-top");
+
+  const coatLayer =
+    document.getElementById("wearable-coat");
+
+  if (
+    !stage ||
+    !character ||
+    !topLayer ||
+    !coatLayer
+  ) {
+    console.warn(
+      "[tryon2d] character stage is not available."
+    );
     return null;
   }
 
   const canvas = document.createElement("canvas");
   canvas.id = "tryOn2dCanvas";
-  canvas.width = REFERENCE.width;
-  canvas.height = REFERENCE.height;
+  canvas.width = expandedRenderWidth();
+  canvas.height = ACTIVE_REFERENCE.height;
   canvas.setAttribute("aria-hidden", "true");
 
   Object.assign(canvas.style, {
@@ -2004,238 +2394,611 @@ export function mountTryOn2dController(store) {
     display: "none",
     pointerEvents: "none",
     userSelect: "none",
-    filter: "drop-shadow(0 10px 8px rgba(63, 46, 36, .10))"
+    filter:
+      "drop-shadow(0 10px 8px rgba(63, 46, 36, .10))"
   });
 
   stage.appendChild(canvas);
+
+  const debugCanvas =
+    document.createElement("canvas");
+  debugCanvas.id = "tryOn2dGuideCanvas";
+  debugCanvas.setAttribute("aria-hidden", "true");
+
+  Object.assign(debugCanvas.style, {
+    position: "absolute",
+    zIndex: "7",
+    display: "none",
+    pointerEvents: "none",
+    userSelect: "none"
+  });
+
+  stage.appendChild(debugCanvas);
 
   const ctx = canvas.getContext("2d", {
     alpha: true,
     willReadFrequently: false
   });
 
+  const debugCtx =
+    debugCanvas.getContext("2d");
+
   const state = {
     body: null,
     leftArm: null,
     rightArm: null,
-    ready: false,
+    sceneKey: "",
     assetsPromise: null,
+    ready: false,
     renderSequence: 0,
     lastRenderedKey: null,
-    hasFrame: false
+    hasFrame: false,
+    debugEnabled: false
   };
 
   const garmentCache = new Map();
 
-  function layoutCanvas() {
-    const stageWidth = stage.clientWidth;
-    const stageHeight = stage.clientHeight;
+  function applySceneSpec(gender) {
+    const spec = getSceneSpec(gender);
 
-    if (!stageWidth || !stageHeight) return;
+    ACTIVE_REFERENCE = spec.reference;
+    ACTIVE_CFG = spec.cfg;
 
-    const imageRatio = REFERENCE.width / REFERENCE.height;
-    const stageRatio = stageWidth / stageHeight;
+    const renderWidth =
+      expandedRenderWidth();
 
-    let width;
-    let height;
-
-    if (stageRatio > imageRatio) {
-      height = stageHeight;
-      width = height * imageRatio;
-    } else {
-      width = stageWidth;
-      height = width / imageRatio;
+    if (
+      canvas.width !== renderWidth ||
+      canvas.height !== ACTIVE_REFERENCE.height
+    ) {
+      canvas.width = renderWidth;
+      canvas.height = ACTIVE_REFERENCE.height;
     }
 
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    canvas.style.left = `${(stageWidth - width) / 2}px`;
-    canvas.style.top = `${(stageHeight - height) / 2}px`;
+    if (
+      debugCanvas.width !== renderWidth ||
+      debugCanvas.height !== ACTIVE_REFERENCE.height
+    ) {
+      debugCanvas.width = renderWidth;
+      debugCanvas.height = ACTIVE_REFERENCE.height;
+    }
+
+    return spec;
+  }
+
+  function layoutCanvasWithOverscan(
+    targetCanvas
+  ) {
+    const stageWidth = stage.clientWidth;
+    const stageHeight = stage.clientHeight;
+    const referenceWidth =
+      ACTIVE_REFERENCE.width;
+    const referenceHeight =
+      ACTIVE_REFERENCE.height;
+
+    if (
+      !stageWidth ||
+      !stageHeight ||
+      !referenceWidth ||
+      !referenceHeight
+    ) {
+      return;
+    }
+
+    // This is exactly the old "contain" scale for the character reference.
+    // We intentionally do NOT include the horizontal overscan in this scale,
+    // so the character and clothing keep the same apparent size.
+    const scale = Math.min(
+      stageWidth / referenceWidth,
+      stageHeight / referenceHeight
+    );
+
+    const padX =
+      horizontalRenderPadPx();
+
+    const referenceDisplayWidth =
+      referenceWidth * scale;
+
+    const width =
+      (referenceWidth + padX * 2) * scale;
+
+    const height =
+      referenceHeight * scale;
+
+    targetCanvas.style.width = `${width}px`;
+    targetCanvas.style.height = `${height}px`;
+
+    targetCanvas.style.left =
+      `${
+        (stageWidth - referenceDisplayWidth) / 2 -
+        padX * scale
+      }px`;
+
+    targetCanvas.style.top =
+      `${(stageHeight - height) / 2}px`;
+  }
+
+  function layoutCanvas() {
+    layoutCanvasWithOverscan(canvas);
+    layoutCanvasWithOverscan(debugCanvas);
   }
 
   function activate() {
     layoutCanvas();
     canvas.style.display = "block";
-
-    // visibility is used instead of opacity so it does not fight the existing
-    // gender-switch opacity animation in wardrobeController.js.
     character.style.visibility = "hidden";
     topLayer.style.visibility = "hidden";
+    coatLayer.style.visibility = "hidden";
   }
 
   function deactivate() {
     canvas.style.display = "none";
     character.style.removeProperty("visibility");
     topLayer.style.removeProperty("visibility");
+    coatLayer.style.removeProperty("visibility");
   }
 
-  async function ensureAssets() {
-    if (state.ready) return;
-    if (!state.assetsPromise) {
-      state.assetsPromise = Promise.all([
-        loadImage(ASSETS.body),
-        loadImage(ASSETS.leftArm),
-        loadImage(ASSETS.rightArm)
-      ]).then(([body, leftArm, rightArm]) => {
+  function hideDebug() {
+    debugCanvas.style.display = "none";
+  }
+
+  function drawFemaleDebug() {
+    if (!state.debugEnabled) {
+      hideDebug();
+      return;
+    }
+
+    const g = FEMALE_DEBUG_GEOMETRY;
+    if (!g) {
+      hideDebug();
+      return;
+    }
+
+    debugCtx.save();
+    debugCtx.setTransform(1, 0, 0, 1, 0, 0);
+    debugCtx.clearRect(
+      0,
+      0,
+      debugCanvas.width,
+      debugCanvas.height
+    );
+    debugCtx.restore();
+
+    const P = point => ({
+      x: point.x * ACTIVE_REFERENCE.width,
+      y: point.y * ACTIVE_REFERENCE.height
+    });
+
+    const sl = P(g.shoulderLeft);
+    const sr = P(g.shoulderRight);
+    const lt = P(g.leftArmTop);
+    const rt = P(g.rightArmTop);
+    const lw = P(g.leftWrist);
+    const rw = P(g.rightWrist);
+    const cx =
+      g.bodyCenterX * ACTIVE_REFERENCE.width;
+
+    debugCtx.save();
+    debugCtx.translate(
+      horizontalRenderPadPx(),
+      0
+    );
+    debugCtx.lineWidth = 4;
+    debugCtx.strokeStyle = "rgba(128,86,166,.92)";
+    debugCtx.setLineDash([16, 10]);
+    debugCtx.beginPath();
+    debugCtx.moveTo(cx, 420);
+    debugCtx.lineTo(cx, 1520);
+    debugCtx.stroke();
+
+    debugCtx.setLineDash([]);
+    debugCtx.strokeStyle = "rgba(214,123,72,.95)";
+    debugCtx.lineWidth = 5;
+    debugCtx.beginPath();
+    debugCtx.moveTo(sl.x, sl.y);
+    debugCtx.lineTo(sr.x, sr.y);
+    debugCtx.stroke();
+
+    debugCtx.strokeStyle = "rgba(0,128,138,.96)";
+    debugCtx.lineWidth = 6;
+    debugCtx.beginPath();
+    debugCtx.moveTo(lt.x, lt.y);
+    debugCtx.lineTo(lw.x, lw.y);
+    debugCtx.stroke();
+    debugCtx.beginPath();
+    debugCtx.moveTo(rt.x, rt.y);
+    debugCtx.lineTo(rw.x, rw.y);
+    debugCtx.stroke();
+
+    function dot(p, fill, radius) {
+      debugCtx.fillStyle = fill;
+      debugCtx.beginPath();
+      debugCtx.arc(
+        p.x,
+        p.y,
+        radius,
+        0,
+        Math.PI * 2
+      );
+      debugCtx.fill();
+      debugCtx.lineWidth = 2;
+      debugCtx.strokeStyle = "rgba(255,255,255,.95)";
+      debugCtx.stroke();
+    }
+
+    dot(sl, "rgba(214,123,72,.96)", 6);
+    dot(sr, "rgba(214,123,72,.96)", 6);
+    dot(lt, "rgba(229,75,98,.96)", 8);
+    dot(rt, "rgba(229,75,98,.96)", 8);
+    dot(lw, "rgba(31,118,214,.96)", 8);
+    dot(rw, "rgba(31,118,214,.96)", 8);
+
+    debugCtx.restore();
+    layoutCanvas();
+    debugCanvas.style.display = "block";
+  }
+
+  async function ensureAssets(spec) {
+    if (
+      state.ready &&
+      state.sceneKey === spec.key
+    ) {
+      return;
+    }
+
+    if (
+      state.assetsPromise &&
+      state.sceneKey === spec.key
+    ) {
+      await state.assetsPromise;
+      return;
+    }
+
+    state.sceneKey = spec.key;
+    state.ready = false;
+
+    state.assetsPromise = Promise.all([
+      loadImage(spec.assets.body),
+      loadImage(spec.assets.leftArm),
+      loadImage(spec.assets.rightArm)
+    ]).then(
+      ([body, leftArm, rightArm]) => {
         state.body = body;
         state.leftArm = leftArm;
         state.rightArm = rightArm;
         state.ready = true;
-      });
-    }
+      }
+    );
+
     await state.assetsPromise;
   }
 
   async function getPreparedGarment(src) {
-    if (garmentCache.has(src)) return garmentCache.get(src);
+    if (garmentCache.has(src)) {
+      return garmentCache.get(src);
+    }
 
-    const promise = prepareGarment(src).catch(error => {
-      garmentCache.delete(src);
-      throw error;
-    });
+    const promise =
+      prepareGarment(src).catch(error => {
+        garmentCache.delete(src);
+        throw error;
+      });
 
     garmentCache.set(src, promise);
     return promise;
   }
 
-  async function renderTopSource(src, key = src) {
-    if (!src) return;
+  function resolveLayerSource(
+    selectedCategory,
+    category,
+    layer,
+    savedItem
+  ) {
+    if (
+      selectedCategory === category &&
+      layer.getAttribute("src")
+    ) {
+      return layer.src;
+    }
 
-    const sequence = ++state.renderSequence;
-    const resolvedSrc = new URL(src, document.baseURI).href;
-    const resolvedKey = String(key || resolvedSrc);
+    return savedItem?.image
+      ? new URL(
+          savedItem.image,
+          document.baseURI
+        ).href
+      : null;
+  }
+
+  async function renderCompositeSources({
+    topSrc = null,
+    coatSrc = null,
+    key = "",
+    gender = "male"
+  } = {}) {
+    if (!topSrc && !coatSrc) {
+      state.renderSequence += 1;
+      state.lastRenderedKey = null;
+      state.hasFrame = false;
+      deactivate();
+      hideDebug();
+      return;
+    }
+
+    const spec = applySceneSpec(gender);
+    layoutCanvas();
+
+    const sequence =
+      ++state.renderSequence;
+
+    const resolvedTop = topSrc
+      ? new URL(
+          topSrc,
+          document.baseURI
+        ).href
+      : null;
+
+    const resolvedCoat = coatSrc
+      ? new URL(
+          coatSrc,
+          document.baseURI
+        ).href
+      : null;
 
     try {
-      await ensureAssets();
-      const garmentPrepared = await getPreparedGarment(resolvedSrc);
+      await ensureAssets(spec);
 
-      if (sequence !== state.renderSequence) return;
+      const [
+        topPrepared,
+        coatPrepared
+      ] = await Promise.all([
+        resolvedTop
+          ? getPreparedGarment(resolvedTop)
+          : Promise.resolve(null),
 
-      renderTryOnFrame(ctx, state, garmentPrepared);
-      state.lastRenderedKey = resolvedKey;
+        resolvedCoat
+          ? getPreparedGarment(resolvedCoat)
+          : Promise.resolve(null)
+      ]);
+
+      if (
+        sequence !== state.renderSequence
+      ) {
+        return;
+      }
+
+      renderTryOnComposite(
+        ctx,
+        state,
+        {
+          topPrepared,
+          coatPrepared
+        }
+      );
+
+      state.lastRenderedKey =
+        String(key);
+
       state.hasFrame = true;
       activate();
-    } catch (error) {
-      if (sequence !== state.renderSequence) return;
 
-      console.warn("[tryon2d] render failed, falling back to the original top layer.", error);
+      if (gender === "female") {
+        drawFemaleDebug();
+      } else {
+        hideDebug();
+      }
+    } catch (error) {
+      if (
+        sequence !== state.renderSequence
+      ) {
+        return;
+      }
+
+      console.warn(
+        "[tryon2d] composite render failed, falling back to original wearable layers.",
+        error
+      );
+
       state.hasFrame = false;
       state.lastRenderedKey = null;
       deactivate();
+      hideDebug();
     }
-  }
-
-  async function renderSavedTop(item) {
-    const src = item?.image;
-    if (!src) return;
-    const resolvedSrc = new URL(src, document.baseURI).href;
-    return renderTopSource(resolvedSrc, `saved::${item?.id ?? "top"}::${resolvedSrc}`);
   }
 
   function sync(appState) {
     const gender = appState.gender;
-    const selectedCategory = appState.wardrobe.selectedCategory;
-    const savedTop = appState.wardrobe.savedOutfits.top;
+    const spec = applySceneSpec(gender);
 
-    // The tuned split-body assets correspond to the existing male character.
-    // Female keeps the project's original overlay behaviour for now.
-    if (gender !== "male") {
-      state.renderSequence += 1;
-      deactivate();
-      return;
-    }
+    const selectedCategory =
+      appState.wardrobe.selectedCategory;
 
-    // As soon as a top is selected, beginPreview() has already written the
-    // preview image into wearable-top.src. Use that source immediately so the
-    // geometry try-on is visible before the user presses "确认".
-    if (selectedCategory === "top") {
-      const previewSrc = topLayer.getAttribute("src") ? topLayer.src : null;
+    const savedTop =
+      appState.wardrobe.savedOutfits.top;
 
-      if (!previewSrc) {
-        state.renderSequence += 1;
-        deactivate();
-        return;
-      }
+    const savedCoat =
+      appState.wardrobe.savedOutfits.coat;
 
-      const key = `preview::${previewSrc}`;
-      if (state.hasFrame && state.lastRenderedKey === key) {
-        activate();
-        return;
-      }
+    const topSrc =
+      resolveLayerSource(
+        selectedCategory,
+        "top",
+        topLayer,
+        savedTop
+      );
 
-      renderTopSource(previewSrc, key);
-      return;
-    }
+    const coatSrc =
+      resolveLayerSource(
+        selectedCategory,
+        "coat",
+        coatLayer,
+        savedCoat
+      );
 
-    if (!savedTop?.image) {
+    if (!topSrc && !coatSrc) {
       state.renderSequence += 1;
       state.lastRenderedKey = null;
       state.hasFrame = false;
       deactivate();
+
+      if (
+        gender === "female" &&
+        state.debugEnabled
+      ) {
+        drawFemaleDebug();
+      } else {
+        hideDebug();
+      }
+
       return;
     }
 
-    const resolvedSavedSrc = new URL(savedTop.image, document.baseURI).href;
-    const key = `saved::${savedTop.id ?? "top"}::${resolvedSavedSrc}`;
+    const key =
+      `${gender}` +
+      `::${selectedCategory || "saved"}` +
+      `::top=${topSrc || ""}` +
+      `::coat=${coatSrc || ""}`;
 
-    if (state.hasFrame && state.lastRenderedKey === key) {
+    if (
+      state.hasFrame &&
+      state.lastRenderedKey === key
+    ) {
       activate();
+
+      if (
+        gender === "female" &&
+        state.debugEnabled
+      ) {
+        drawFemaleDebug();
+      } else {
+        hideDebug();
+      }
+
       return;
     }
 
-    renderSavedTop(savedTop);
+    renderCompositeSources({
+      topSrc,
+      coatSrc,
+      key,
+      gender
+    });
   }
 
   let resizeObserver = null;
-  let topSourceObserver = null;
+  let upperSourceObserver = null;
 
-  if (typeof MutationObserver !== "undefined") {
-    topSourceObserver = new MutationObserver(mutations => {
-      if (!mutations.some(m => m.type === "attributes" && m.attributeName === "src")) {
-        return;
+  if (
+    typeof MutationObserver !== "undefined"
+  ) {
+    upperSourceObserver =
+      new MutationObserver(mutations => {
+        if (
+          !mutations.some(
+            mutation =>
+              mutation.type === "attributes" &&
+              mutation.attributeName === "src"
+          )
+        ) {
+          return;
+        }
+
+        const current =
+          store.getState();
+
+        if (
+          current.wardrobe.selectedCategory === "top" ||
+          current.wardrobe.selectedCategory === "coat"
+        ) {
+          sync(current);
+        }
+      });
+
+    upperSourceObserver.observe(
+      topLayer,
+      {
+        attributes: true,
+        attributeFilter: ["src"]
       }
+    );
 
-      const current = store.getState();
-      if (current.gender === "male" && current.wardrobe.selectedCategory === "top") {
-        sync(current);
+    upperSourceObserver.observe(
+      coatLayer,
+      {
+        attributes: true,
+        attributeFilter: ["src"]
       }
-    });
-
-    topSourceObserver.observe(topLayer, {
-      attributes: true,
-      attributeFilter: ["src"]
-    });
+    );
   }
 
-  if (typeof ResizeObserver !== "undefined") {
-    resizeObserver = new ResizeObserver(layoutCanvas);
+  if (
+    typeof ResizeObserver !== "undefined"
+  ) {
+    resizeObserver =
+      new ResizeObserver(layoutCanvas);
+
     resizeObserver.observe(stage);
   } else {
-    window.addEventListener("resize", layoutCanvas);
+    window.addEventListener(
+      "resize",
+      layoutCanvas
+    );
   }
 
-  const unsubscribe = store.subscribe(sync);
+  const unsubscribe =
+    store.subscribe(sync);
+
   sync(store.getState());
   layoutCanvas();
 
   const api = {
     canvas,
+    guideCanvas: debugCanvas,
+
     rerender() {
-      const top = store.getState().wardrobe.savedOutfits.top;
-      if (top?.image) {
-        state.lastRenderedKey = null;
-        renderSavedTop(top);
-      }
+      state.lastRenderedKey = null;
+      state.hasFrame = false;
+      sync(store.getState());
     },
+
+    showFemaleDebug(value = true) {
+      state.debugEnabled =
+        Boolean(value);
+
+      if (
+        store.getState().gender === "female"
+      ) {
+        if (state.debugEnabled) {
+          drawFemaleDebug();
+        } else {
+          hideDebug();
+        }
+      }
+
+      return state.debugEnabled;
+    },
+
     destroy() {
       unsubscribe();
       resizeObserver?.disconnect();
-      topSourceObserver?.disconnect();
-      window.removeEventListener("resize", layoutCanvas);
+      upperSourceObserver?.disconnect();
+
+      window.removeEventListener(
+        "resize",
+        layoutCanvas
+      );
+
       deactivate();
+      hideDebug();
       canvas.remove();
+      debugCanvas.remove();
     },
-    config: CFG
+
+    currentConfig() {
+      return ACTIVE_CFG;
+    },
+
+    femaleGeometry:
+      FEMALE_DEBUG_GEOMETRY
   };
 
   if (import.meta.env.DEV) {
