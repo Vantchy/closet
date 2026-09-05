@@ -6,6 +6,7 @@ import { mountWardrobeController } from "./features/wardrobe/wardrobeController.
 import { mountPhotoUpload } from "./features/upload/photoUpload.js";
 import { mountWeatherController } from "./features/weather/weatherController.js";
 import { mountTryOnController } from "./features/tryon/tryOnController.js";
+import { mountTryOn2dController } from "./features/tryon2d/tryOn2dController.js";
 
 const root = document.getElementById("app");
 const store = createStore();
@@ -31,6 +32,7 @@ mountCurtainController(store, {
   requestWeather: weatherController.refresh
 });
 mountWardrobeController(store);
+mountTryOn2dController(store);
 mountPhotoUpload(store);
 mountTryOnController(store);
 

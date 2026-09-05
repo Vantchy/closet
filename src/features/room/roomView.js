@@ -11,10 +11,7 @@ export function renderRoomScene(root) {
             alt=""
             draggable="false"
           />
-          <span class="window-frame-bar window-frame-bar--vertical"></span>
-          <span class="window-frame-bar window-frame-bar--horizontal"></span>
-        </div>
-
+</div>
         <button
           class="window-curtain-zone"
           id="windowCurtainZone"
@@ -36,16 +33,45 @@ export function renderRoomScene(root) {
             draggable="false"
           />
         </button>
-
         <div
           class="room-weather-summary"
           id="roomWeatherSummary"
           aria-live="polite"
           title="点击窗帘获取当前天气"
+          style="transform: translateY(-24px);"
         >
           <span class="room-weather-summary__temperature" id="roomWeatherTemperature">--°C</span>
           <span class="room-weather-summary__condition" id="roomWeatherCondition">天气待获取</span>
         </div>
+        <div
+          id="roomWeatherAdvice"
+          aria-live="polite"
+          title="获取天气后显示穿衣建议"
+          style="
+            position:absolute;
+            left:32.9%;
+            top:calc(25.5% - 20px);
+            z-index:9;
+            max-width:calc(45.35% - 32.9% - 14px);
+            padding:1px 8px;
+            border:1px solid rgba(92,68,51,.10);
+            border-radius:12px;
+            background:rgba(255,250,246,.80);
+            box-shadow:0 3px 10px rgba(71,49,35,.05);
+            backdrop-filter:blur(8px);
+            color:#5f493c;
+            font-size:clamp(14px,.82vw,15px);
+            font-weight:750;
+            line-height:1.18;
+            white-space:normal;
+            overflow-wrap:anywhere;
+            display:-webkit-box;
+            -webkit-box-orient:vertical;
+            -webkit-line-clamp:4;
+            overflow:hidden;
+            pointer-events:none;
+          "
+        >适宜：获取天气后显示</div>
         <img class="wardrobe" id="wardrobe" src="/src/assets/wardrobe_male.png" alt="男生衣柜，点击放大查看" draggable="false" />
         <div class="character-stage" id="characterStage">
           <img class="character" id="character" src="/src/assets/character_male.png" alt="男生角色" draggable="false" />
@@ -79,6 +105,25 @@ export function renderRoomScene(root) {
               <div class="profile-window-content" id="profileContent"></div>
             </div>
             <button class="profile-edit-btn" id="profileEditBtn" type="button">修改</button>
+      </div>
+      <div class="wardrobe-tools" id="wardrobeTools" aria-label="衣柜分类">
+        <div class="category-menu" id="categoryMenu">
+          <button class="category-btn" type="button" data-category="hat" aria-pressed="false">帽子</button>
+          <button class="category-btn" type="button" data-category="top" aria-pressed="false">上衣</button>
+          <button class="category-btn" type="button" data-category="coat" aria-pressed="false">外套</button>
+          <button class="category-btn" type="button" data-category="pants" aria-pressed="false">裤子</button>
+        </div>
+        <div class="item-grid-panel" id="itemGridPanel" aria-label="衣物格子"></div>
+        <div class="selection-actions" id="selectionActions" aria-label="衣物选择操作">
+          <button class="selection-action-btn" id="rotateItemBtn" type="button" hidden title="顺时针旋转 90°，可连续点击">旋转</button>
+          <button class="selection-action-btn" id="cancelSelectionBtn" type="button">返回</button>
+          <button class="selection-action-btn danger" id="takeOffBtn" type="button" hidden>脱下</button>
+          <button class="selection-action-btn confirm" id="confirmSelectionBtn" type="button">确认</button>
+        </div>
+        <div class="profile-preview" id="profilePreview">
+          <div class="profile-window">
+            <h3 class="profile-window-title">简介</h3>
+            <div class="profile-window-content" id="profileContent"></div>
           </div>
         </div>
       </div>
@@ -92,8 +137,16 @@ export function renderRoomScene(root) {
       </div>
 
       <div class="hint">点击左侧衣柜查看</div>
-
       <aside class="integration-dock" aria-label="项目扩展功能">
+        <section class="integration-card" id="weatherCard">
+          <h2 class="integration-card__title">当前天气</h2>
+          <div class="integration-card__row">
+            <button class="integration-button" id="weatherButton" type="button">获取当前天气</button>
+            <span class="weather-readout" id="weatherReadout">尚未获取</span>
+          </div>
+          <p class="integration-status" id="weatherStatus">使用浏览器定位后请求 Open-Meteo。</p>
+        </section>
+
         <section class="integration-card" id="tryOnCard">
           <h2 class="integration-card__title">AI 试穿</h2>
           <div class="integration-card__row">

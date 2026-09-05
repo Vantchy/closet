@@ -56,6 +56,11 @@ export async function fetchCurrentWeather({ latitude, longitude }, signal) {
       "snowfall",
       "is_day"
     ].join(","),
+    daily: [
+      "temperature_2m_max",
+      "temperature_2m_min"
+    ].join(","),
+    forecast_days: "1",
     timezone: "auto"
   });
 
@@ -66,9 +71,12 @@ export async function fetchCurrentWeather({ latitude, longitude }, signal) {
 
   const payload = await response.json();
   const current = payload.current;
+  const daily = payload.daily ?? {};
 
   return {
     temperature: current.temperature_2m,
+    todayMax: daily.temperature_2m_max?.[0] ?? null,
+    todayMin: daily.temperature_2m_min?.[0] ?? null,
     apparentTemperature: current.apparent_temperature,
     humidity: current.relative_humidity_2m,
     windSpeed: current.wind_speed_10m,
