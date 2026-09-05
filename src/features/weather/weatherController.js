@@ -22,7 +22,14 @@ export function mountWeatherController(store) {
   }
 
   function renderSuccess(data) {
-    temperature.textContent = `${Math.round(data.temperature)}°C`;
+    const hasRange =
+      Number.isFinite(data.todayMin) &&
+      Number.isFinite(data.todayMax);
+
+    temperature.textContent = hasRange
+      ? `${Math.round(data.todayMin)}–${Math.round(data.todayMax)}°C`
+      : `${Math.round(data.temperature)}°C`;
+
     condition.textContent = data.description;
     summary.dataset.status = "success";
     summary.title =
