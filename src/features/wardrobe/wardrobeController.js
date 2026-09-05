@@ -88,7 +88,7 @@ export function mountWardrobeController(store) {
     btn.addEventListener("click", () => setGender(btn.dataset.gender));
   });
 
-  function setWearable(category, src, { previewing = false } = {}) {
+  function setWearable(category, src) {
     const layer = wearableLayers[category];
     if (!layer) return;
 
@@ -99,8 +99,6 @@ export function mountWardrobeController(store) {
       layer.removeAttribute("src");
       layer.classList.remove("is-visible");
     }
-    // 预览（未确认）态半透明虚化，确认后恢复实色
-    layer.classList.toggle("is-previewing", previewing && Boolean(src));
   }
 
   function restoreSavedWearable(category) {
@@ -174,7 +172,7 @@ export function mountWardrobeController(store) {
     if (!previewItem) return;
 
     previewState = { category, item: previewItem };
-    setWearable(category, previewItem.image, { previewing: true });
+    setWearable(category, previewItem.image);
 
     itemGridPanel
       .querySelectorAll(".item-slot--filled")
@@ -226,7 +224,7 @@ export function mountWardrobeController(store) {
       itemGridPanel.classList.add("is-visible");
 
       // 同步人物身上的试穿效果（仍在预览态）
-      setWearable(category, item.image, { previewing: true });
+      setWearable(category, item.image);
     } catch (err) {
       console.warn("衣物图片旋转失败：", err);
     } finally {

@@ -325,12 +325,6 @@
     opacity: 1;
   }
 
-  /* 试穿预览（未确认）态：半透明 + 轻微虚化，与正式穿着区分 */
-  .wearable-layer.is-previewing {
-    opacity: 0.5;
-    filter: blur(1.5px) saturate(0.85);
-  }
-
   /* Clothing layer priority:
      pants < top < coat, with hat above everything. */
   .wearable-pants {
