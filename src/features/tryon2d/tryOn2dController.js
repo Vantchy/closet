@@ -1,3 +1,15 @@
+import {
+  splitBodyIntoRotatableLegs,
+  preparePants,
+  computePantsLayout,
+  drawSplitBody,
+  drawPantsLayer,
+  verifyLegSplit,
+  pantsDebugGeometry,
+  drawPantsDebugOverlay,
+  recomposeSplitBody
+} from "./pantsTryOn2d.js";
+
 const MALE_REFERENCE = {
   width: 887,
   height: 1774
@@ -33,7 +45,13 @@ const MALE_CFG = {
   garmentCompressEpsilon: 0.0001,
   frontNeckBodyOverlapPx: 1.5,
   maxArmRotation: 0.62,
-  horizontalCanvasOverscanRatio: 0.316798196
+  horizontalCanvasOverscanRatio: 0.316798196,
+
+  // Pants-only geometry. These fields are never read by the upper-body path.
+  pantsThighMidRatio: 0.26,
+  pantsMinVerticalRatio: 0.78,
+  pantsCompressEpsilon: 0.0001,
+  maxLegRotation: 0.38
 };
 
 // Female configuration rebuilt from the supplied split assets.
@@ -2357,6 +2375,98 @@ function renderTryOnComposite(
 }
 
 
+function renderTryOnPantsComposite(
+  ctx,
+  state,
+  {
+    legSplit,
+    pantsLayout,
+    topPrepared = null,
+    coatPrepared = null
+  } = {}
+) {
+  const { leftArm, rightArm } = state;
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(
+    0,
+    0,
+    ctx.canvas.width,
+    ctx.canvas.height
+  );
+  ctx.restore();
+
+  // IMPORTANT: the complete upper-body fitting pipeline below is the same
+  // helper path as renderTryOnComposite(). Pants only replace the body draw
+  // with split/rotatable legs and insert one layer below top/coat.
+  const driverPrepared =
+    coatPrepared || topPrepared;
+
+  const armCtx = createArmContext(state);
+  const driverLayout = driverPrepared
+    ? computeDriverLayout(driverPrepared, armCtx)
+    : null;
+
+  const topLayout = topPrepared
+    ? (
+        coatPrepared
+          ? createGarmentPlacement(topPrepared)
+          : driverLayout
+      )
+    : null;
+
+  const coatLayout = coatPrepared
+    ? driverLayout
+    : null;
+
+  const armPose = driverLayout?.finalPose ?? {
+    lr: 0,
+    rr: 0
+  };
+
+  ctx.save();
+  ctx.translate(
+    horizontalRenderPadPx(),
+    0
+  );
+
+  // The body reference itself stays at (0, 0). Each leg layer is also a
+  // full-size 887x1774 canvas in the original coordinate system; only the
+  // leg pixels rotate around their thigh anchor.
+  drawSplitBody(
+    ctx,
+    legSplit,
+    pantsLayout.finalPose
+  );
+
+  drawArm(
+    ctx,
+    leftArm,
+    armCtx.shoulders.left,
+    armCtx.lPivot,
+    armCtx.leftArmScale,
+    armPose.lr
+  );
+
+  drawArm(
+    ctx,
+    rightArm,
+    armCtx.shoulders.right,
+    armCtx.rPivot,
+    armCtx.rightArmScale,
+    armPose.rr
+  );
+
+  // Existing project z-order is pants < top < coat.
+  drawPantsLayer(ctx, pantsLayout);
+  drawGarmentLayer(ctx, topLayout);
+  drawGarmentLayer(ctx, coatLayout);
+
+  ctx.restore();
+}
+
+
 export function mountTryOn2dController(store) {
   const stage =
     document.getElementById("characterStage");
@@ -2370,11 +2480,15 @@ export function mountTryOn2dController(store) {
   const coatLayer =
     document.getElementById("wearable-coat");
 
+  const pantsLayer =
+    document.getElementById("wearable-pants");
+
   if (
     !stage ||
     !character ||
     !topLayer ||
-    !coatLayer
+    !coatLayer ||
+    !pantsLayer
   ) {
     console.warn(
       "[tryon2d] character stage is not available."
@@ -2433,10 +2547,22 @@ export function mountTryOn2dController(store) {
     renderSequence: 0,
     lastRenderedKey: null,
     hasFrame: false,
-    debugEnabled: false
+    debugEnabled: false,
+    pantsDebugEnabled: false,
+    usesPantsComposite: false,
+    // While a male pants source is being prepared, never let the raw DOM
+    // <img> flash through. That raw layer is only a source container; the
+    // fitted canvas owns the visible pants presentation.
+    suppressRawPants: false,
+    lastPantsError: null,
+    legSplit: null,
+    legSplitSceneKey: "",
+    legSplitPromise: null,
+    lastPantsLayout: null
   };
 
   const garmentCache = new Map();
+  const pantsCache = new Map();
 
   function applySceneSpec(gender) {
     const spec = getSceneSpec(gender);
@@ -2529,6 +2655,12 @@ export function mountTryOn2dController(store) {
     character.style.visibility = "hidden";
     topLayer.style.visibility = "hidden";
     coatLayer.style.visibility = "hidden";
+
+    if (state.usesPantsComposite || state.suppressRawPants) {
+      pantsLayer.style.visibility = "hidden";
+    } else {
+      pantsLayer.style.removeProperty("visibility");
+    }
   }
 
   function deactivate() {
@@ -2536,6 +2668,12 @@ export function mountTryOn2dController(store) {
     character.style.removeProperty("visibility");
     topLayer.style.removeProperty("visibility");
     coatLayer.style.removeProperty("visibility");
+    if (state.suppressRawPants) {
+      pantsLayer.style.visibility = "hidden";
+    } else {
+      pantsLayer.style.removeProperty("visibility");
+    }
+    state.usesPantsComposite = false;
   }
 
   function hideDebug() {
@@ -2638,6 +2776,43 @@ export function mountTryOn2dController(store) {
     debugCanvas.style.display = "block";
   }
 
+
+  function drawMalePantsDebug() {
+    if (
+      !state.pantsDebugEnabled ||
+      !state.legSplit ||
+      !state.lastPantsLayout
+    ) {
+      hideDebug();
+      return;
+    }
+
+    debugCtx.save();
+    debugCtx.setTransform(1, 0, 0, 1, 0, 0);
+    debugCtx.clearRect(
+      0,
+      0,
+      debugCanvas.width,
+      debugCanvas.height
+    );
+    debugCtx.restore();
+
+    debugCtx.save();
+    debugCtx.translate(
+      horizontalRenderPadPx(),
+      0
+    );
+    drawPantsDebugOverlay(
+      debugCtx,
+      state.legSplit,
+      state.lastPantsLayout
+    );
+    debugCtx.restore();
+
+    layoutCanvas();
+    debugCanvas.style.display = "block";
+  }
+
   async function ensureAssets(spec) {
     if (
       state.ready &&
@@ -2656,6 +2831,9 @@ export function mountTryOn2dController(store) {
 
     state.sceneKey = spec.key;
     state.ready = false;
+    state.legSplit = null;
+    state.legSplitSceneKey = "";
+    state.legSplitPromise = null;
 
     state.assetsPromise = Promise.all([
       loadImage(spec.assets.body),
@@ -2688,6 +2866,65 @@ export function mountTryOn2dController(store) {
     return promise;
   }
 
+
+  async function ensureMaleLegSplit() {
+    if (
+      state.legSplit &&
+      state.legSplitSceneKey === "male"
+    ) {
+      return state.legSplit;
+    }
+
+    if (
+      state.legSplitPromise &&
+      state.legSplitSceneKey === "male"
+    ) {
+      return state.legSplitPromise;
+    }
+
+    if (!state.body || state.sceneKey !== "male") {
+      throw new Error("男生身体素材尚未准备好，无法分割腿部");
+    }
+
+    state.legSplitSceneKey = "male";
+    state.legSplitPromise = Promise.resolve().then(() =>
+      splitBodyIntoRotatableLegs(
+        state.body,
+        MALE_CFG
+      )
+    );
+
+    try {
+      state.legSplit = await state.legSplitPromise;
+      const verification = verifyLegSplit(state.legSplit);
+      if (!verification?.partitionExact) {
+        throw new Error(
+          `腿部分割重组校验失败: ${JSON.stringify(verification)}`
+        );
+      }
+      return state.legSplit;
+    } catch (error) {
+      state.legSplit = null;
+      state.legSplitPromise = null;
+      state.legSplitSceneKey = "";
+      throw error;
+    }
+  }
+
+  async function getPreparedPants(src) {
+    if (pantsCache.has(src)) {
+      return pantsCache.get(src);
+    }
+
+    const promise = preparePants(src).catch(error => {
+      pantsCache.delete(src);
+      throw error;
+    });
+
+    pantsCache.set(src, promise);
+    return promise;
+  }
+
   function resolveLayerSource(
     selectedCategory,
     category,
@@ -2712,10 +2949,23 @@ export function mountTryOn2dController(store) {
   async function renderCompositeSources({
     topSrc = null,
     coatSrc = null,
+    pantsSrc = null,
     key = "",
     gender = "male"
   } = {}) {
-    if (!topSrc && !coatSrc) {
+    const wantsPantsComposite =
+      gender === "male" && Boolean(pantsSrc);
+
+    // Hide the raw source layer synchronously, before any image decoding or
+    // geometry work can yield. This prevents an opaque/checkerboard upload
+    // from flashing at the legacy CSS size during preview.
+    state.suppressRawPants = wantsPantsComposite;
+    if (state.suppressRawPants) {
+      pantsLayer.style.visibility = "hidden";
+    }
+
+    if (!topSrc && !coatSrc && !wantsPantsComposite) {
+      state.suppressRawPants = false;
       state.renderSequence += 1;
       state.lastRenderedKey = null;
       state.hasFrame = false;
@@ -2744,6 +2994,13 @@ export function mountTryOn2dController(store) {
         ).href
       : null;
 
+    const resolvedPants = wantsPantsComposite
+      ? new URL(
+          pantsSrc,
+          document.baseURI
+        ).href
+      : null;
+
     try {
       await ensureAssets(spec);
 
@@ -2760,29 +3017,90 @@ export function mountTryOn2dController(store) {
           : Promise.resolve(null)
       ]);
 
+      let pantsPrepared = null;
+      let legSplit = null;
+      let pantsLayout = null;
+
+      // Pants are deliberately isolated from the upper-body promise. If pants
+      // geometry ever fails, top/coat still render through the original path.
+      if (resolvedPants) {
+        try {
+          [pantsPrepared, legSplit] = await Promise.all([
+            getPreparedPants(resolvedPants),
+            ensureMaleLegSplit()
+          ]);
+
+          pantsLayout = computePantsLayout(
+            pantsPrepared,
+            legSplit,
+            MALE_CFG
+          );
+          state.lastPantsError = null;
+        } catch (pantsError) {
+          state.lastPantsError =
+            pantsError instanceof Error
+              ? pantsError.message
+              : String(pantsError);
+          console.warn(
+            "[tryon2d] pants geometry failed; raw pants source remains hidden.",
+            pantsError
+          );
+          pantsPrepared = null;
+          legSplit = null;
+          pantsLayout = null;
+        }
+      }
+
       if (
         sequence !== state.renderSequence
       ) {
         return;
       }
 
-      renderTryOnComposite(
-        ctx,
-        state,
-        {
-          topPrepared,
-          coatPrepared
-        }
-      );
+      if (pantsLayout && legSplit) {
+        renderTryOnPantsComposite(
+          ctx,
+          state,
+          {
+            legSplit,
+            pantsLayout,
+            topPrepared,
+            coatPrepared
+          }
+        );
+      } else if (topPrepared || coatPrepared) {
+        // Exact pre-existing upper-body render function.
+        renderTryOnComposite(
+          ctx,
+          state,
+          {
+            topPrepared,
+            coatPrepared
+          }
+        );
+      } else {
+        state.hasFrame = false;
+        state.lastRenderedKey = null;
+        state.usesPantsComposite = false;
+        state.lastPantsLayout = null;
+        deactivate();
+        hideDebug();
+        return;
+      }
 
       state.lastRenderedKey =
         String(key);
 
       state.hasFrame = true;
+      state.usesPantsComposite = Boolean(pantsLayout && legSplit);
+      state.lastPantsLayout = pantsLayout;
+      if (legSplit) state.legSplit = legSplit;
       activate();
 
       if (gender === "female") {
         drawFemaleDebug();
+      } else if (state.usesPantsComposite && state.pantsDebugEnabled) {
+        drawMalePantsDebug();
       } else {
         hideDebug();
       }
@@ -2800,6 +3118,8 @@ export function mountTryOn2dController(store) {
 
       state.hasFrame = false;
       state.lastRenderedKey = null;
+      state.lastPantsLayout = null;
+      state.usesPantsComposite = false;
       deactivate();
       hideDebug();
     }
@@ -2818,6 +3138,9 @@ export function mountTryOn2dController(store) {
     const savedCoat =
       appState.wardrobe.savedOutfits.coat;
 
+    const savedPants =
+      appState.wardrobe.savedOutfits.pants;
+
     const topSrc =
       resolveLayerSource(
         selectedCategory,
@@ -2834,10 +3157,25 @@ export function mountTryOn2dController(store) {
         savedCoat
       );
 
-    if (!topSrc && !coatSrc) {
+    const pantsSrc =
+      resolveLayerSource(
+        selectedCategory,
+        "pants",
+        pantsLayer,
+        savedPants
+      );
+
+    const hasCustomMalePants =
+      gender === "male" && Boolean(pantsSrc);
+
+    if (!topSrc && !coatSrc && !hasCustomMalePants) {
+      state.suppressRawPants = false;
+      state.lastPantsError = null;
       state.renderSequence += 1;
       state.lastRenderedKey = null;
       state.hasFrame = false;
+      state.lastPantsLayout = null;
+      state.usesPantsComposite = false;
       deactivate();
 
       if (
@@ -2852,11 +3190,22 @@ export function mountTryOn2dController(store) {
       return;
     }
 
+    // Confirming pants changes selectedCategory from "pants" to null, but
+    // the actual visual inputs are unchanged. Keep that transition on the
+    // same key so a good preview frame is not thrown away and rebuilt.
+    // Top/coat confirmation keeps its previous scheduling behaviour.
+    const selectionRenderKey =
+      selectedCategory === "pants" ||
+      (!selectedCategory && hasCustomMalePants)
+        ? "pants-stable"
+        : (selectedCategory || "saved");
+
     const key =
       `${gender}` +
-      `::${selectedCategory || "saved"}` +
+      `::${selectionRenderKey}` +
       `::top=${topSrc || ""}` +
-      `::coat=${coatSrc || ""}`;
+      `::coat=${coatSrc || ""}` +
+      `::pants=${hasCustomMalePants ? pantsSrc : ""}`;
 
     if (
       state.hasFrame &&
@@ -2869,6 +3218,12 @@ export function mountTryOn2dController(store) {
         state.debugEnabled
       ) {
         drawFemaleDebug();
+      } else if (
+        gender === "male" &&
+        state.usesPantsComposite &&
+        state.pantsDebugEnabled
+      ) {
+        drawMalePantsDebug();
       } else {
         hideDebug();
       }
@@ -2879,18 +3234,19 @@ export function mountTryOn2dController(store) {
     renderCompositeSources({
       topSrc,
       coatSrc,
+      pantsSrc: hasCustomMalePants ? pantsSrc : null,
       key,
       gender
     });
   }
 
   let resizeObserver = null;
-  let upperSourceObserver = null;
+  let wearableSourceObserver = null;
 
   if (
     typeof MutationObserver !== "undefined"
   ) {
-    upperSourceObserver =
+    wearableSourceObserver =
       new MutationObserver(mutations => {
         if (
           !mutations.some(
@@ -2907,13 +3263,14 @@ export function mountTryOn2dController(store) {
 
         if (
           current.wardrobe.selectedCategory === "top" ||
-          current.wardrobe.selectedCategory === "coat"
+          current.wardrobe.selectedCategory === "coat" ||
+          current.wardrobe.selectedCategory === "pants"
         ) {
           sync(current);
         }
       });
 
-    upperSourceObserver.observe(
+    wearableSourceObserver.observe(
       topLayer,
       {
         attributes: true,
@@ -2921,8 +3278,16 @@ export function mountTryOn2dController(store) {
       }
     );
 
-    upperSourceObserver.observe(
+    wearableSourceObserver.observe(
       coatLayer,
+      {
+        attributes: true,
+        attributeFilter: ["src"]
+      }
+    );
+
+    wearableSourceObserver.observe(
+      pantsLayer,
       {
         attributes: true,
         attributeFilter: ["src"]
@@ -2977,16 +3342,58 @@ export function mountTryOn2dController(store) {
       return state.debugEnabled;
     },
 
+
+    showPantsDebug(value = true) {
+      state.pantsDebugEnabled = Boolean(value);
+
+      if (
+        store.getState().gender === "male" &&
+        state.usesPantsComposite
+      ) {
+        if (state.pantsDebugEnabled) {
+          drawMalePantsDebug();
+        } else {
+          hideDebug();
+        }
+      }
+
+      return state.pantsDebugEnabled;
+    },
+
+    getPantsDebugReport() {
+      if (!state.legSplit) return null;
+      return {
+        split: verifyLegSplit(state.legSplit),
+        geometry: pantsDebugGeometry(
+          state.legSplit,
+          state.lastPantsLayout
+        ),
+        lastError: state.lastPantsError
+      };
+    },
+
+    getPantsPieces() {
+      if (!state.legSplit) return null;
+      const recomposed = recomposeSplitBody(state.legSplit);
+      return {
+        body: state.legSplit.bodyCanvas,
+        leftLeg: state.legSplit.leftLegCanvas,
+        rightLeg: state.legSplit.rightLegCanvas,
+        recomposed
+      };
+    },
+
     destroy() {
       unsubscribe();
       resizeObserver?.disconnect();
-      upperSourceObserver?.disconnect();
+      wearableSourceObserver?.disconnect();
 
       window.removeEventListener(
         "resize",
         layoutCanvas
       );
 
+      state.suppressRawPants = false;
       deactivate();
       hideDebug();
       canvas.remove();
