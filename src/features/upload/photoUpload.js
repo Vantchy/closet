@@ -106,16 +106,7 @@ export function mountPhotoUpload(store) {
       finalBlob = cutBlob;
       showHint("衣物背景已移除。");
     } catch (err) {
-      const msg = err && err.message ? String(err.message) : String(err);
-      console.warn("背景移除失败，使用 EXIF 校正后的原图：", err);
-      // 让用户清楚看到是"模型分块不完整/网络问题"，而不是静默失败
-      if (/Failed to fetch|with size|proto|ORT_|onnx/i.test(msg)) {
-        showHint(`模型文件不完整，暂时跳过抠图（${msg.slice(0, 28)}）。`);
-      } else if (/前景过少|抠图结果为空/.test(msg)) {
-        showHint("未能识别出衣物主体，已使用原图。");
-      } else {
-        showHint(`背景移除失败：${msg.slice(0, 24)}，已用原图。`);
-      }
+      console.warn("背景移除失败，使用原图：", err);
     }
     addCustomItem(category, {
       name: file.name.replace(/\.[^.]+$/, ""),
