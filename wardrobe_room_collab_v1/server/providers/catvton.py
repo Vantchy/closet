@@ -55,13 +55,14 @@ class CatVTONProvider(TryOnProvider):
         self.pipeline = CatVTONPipeline(
             base_ckpt=os.environ.get(
                 "CATVTON_BASE_MODEL",
-                "booksforcharlie/stable-diffusion-inpainting",
+                "stable-diffusion-v1-5/stable-diffusion-inpainting",
             ),
             attn_ckpt=repo_path,
             attn_ckpt_version="mix",
             weight_dtype=init_weight_dtype(precision),
             use_tf32=os.environ.get("CATVTON_ALLOW_TF32", "1") == "1",
             device=self.device,
+            skip_safety_check=True,
         )
 
         self.automasker = AutoMasker(
